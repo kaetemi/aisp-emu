@@ -1150,6 +1150,21 @@ Client uses both in CAIProtoArea_vtbl__func_40 to size the trigger volume. HalfE
 - **Packet Size:** 4
 - **Description:** Result of closing the AI power window. The client reads a fixed 4 bytes. Not sent by the emulator. The packet table previously listed it as 0x6EE1, which the client dispatcher routes to recv_item_discard_sum_r.
 
+## recv_notify_update_nameplate (NotifyUpdateNameplate)
+
+- **Server:** Area
+- **Direction:** ServerToClient
+- **Packet ID (hex):** 0x64AD
+- **Packet Size:** 8
+- **Description:** Changes a character's name plate live (case 0x7D11CF → CChara::SetNamePlate). The same value travels in every CharaData at offset 0x168, the field previously labelled JobId: 0 no plate, 1-6 the client's coloured plates (packed UI resource 0x3AFC, frames 110-160), 0xFFFFFFFF a seventh (frame 100). NPCs have no default plate at all, so the value in their record is the only source of theirs: the variants seen live are 1 pink, 2 dark purple, 3 red, 4 purple, 5 blue, 6 orange with a yellow border (the only one that colours the border), 0xFFFFFFFF green; 4 is the plate the original drew behind NPC names, which the emulator seeds for every NPC unless the seed row's `namePlate` says otherwise. Avatars get a kind-based default plate regardless. This live update packet only takes effect on avatars; an NPC's plate is read when its record is created.
+
+**Layout:**
+
+```text
+    UInt {ObjectId}
+    UInt {NamePlate}
+```
+
 ## send_user_status_update (UserStatusUpdateRequest)
 
 - **Server:** Area
