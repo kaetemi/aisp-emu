@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>aisp:vol=100;mute=0</title>
+<style>
+html,body{margin:0;padding:0;background:#fff;color:#000;font-family:Arial,sans-serif;overflow:hidden}
+/* The client copies a fixed rectangle out of the rendered page: 486x343 at (9,15) for a room
+   TV or channel screen, 950x520 at flvplayer_container's origin for live-watch.
+   The stage mesh OZ_28_na_screen02A then samples two quads of that 950x520 crop
+   (UVs in 256ths: top u 58-229 v 1-36, main u 58-229 v 38-255 → pixels below). */
+#navi{position:absolute;left:0;top:0;width:1024px;height:0}
+#flvplayer_container{position:absolute;background:#000;color:#fff;overflow:hidden}
+body.tv #flvplayer_container{left:9px;top:15px;width:486px;height:343px}
+body.live #flvplayer_container{left:0;top:0;width:950px;height:520px}
+/* The Stage wall shows two windows onto the crop, measured in game with /screen c: outlines
+   (2026-09-03): the banner is page (7,7)-(550,60), the main LED (7,65)-(550,447). A TV shows its
+   whole 486x343 crop. */
+.led{position:absolute;background:#1a1a2e;overflow:hidden}
+body.live #led-top{left:7px;top:7px;width:543px;height:53px}
+body.live #led-main{left:7px;top:65px;width:543px;height:382px}
+body.tv #led-top{display:none}
+body.tv #led-main{left:0;top:0;width:486px;height:343px}
+#title{position:absolute;left:12px;top:8px;font-size:22px;font-weight:bold;color:#ffd166;white-space:nowrap}
+body.tv #title{font-size:18px;top:6px}
+#meta{position:absolute;left:12px;top:10px;font-size:13px;color:#cfe;line-height:18px}
+body.tv #meta{top:32px}
+#calls{position:absolute;left:12px;bottom:8px;width:90%;height:90px;font-size:12px;color:#fc9;overflow:hidden}
+#pulse{position:absolute;right:12px;top:10px;width:24px;height:24px;background:#f80}
+#outside{position:absolute;left:9px;top:600px;font-size:12px;color:#888}
+.ret{position:absolute;left:520px;font-size:12px;color:#00f}
+.corner{position:absolute;width:12px;height:12px;background:#f80}
+.panel{position:absolute;outline:2px solid #f80}
+.panel .lab{position:absolute;left:4px;top:2px;font-size:11px;color:#f80}
+.lab{position:absolute;font-size:11px;color:#8ff}
+</style></head><body>
+<div id="navi"></div>
+<div id="flvplayer_container">
+  <div id="led-top" class="led"><div id="title">aisp-emu screen</div><div id="pulse"></div></div>
+  <div id="led-main" class="led">
+    <div id="meta">loading</div>
+    <div id="calls">calls from the client appear here</div>
+  </div>
+</div>
+<!-- A page source (http/https) is shown here, over the crop area; stream sources go to the hook. -->
+<iframe id="frame" style="position:absolute;left:0;top:0;width:0;height:0;border:0;display:none" frameborder="0" scrolling="no"></iframe>
+<iframe id="banner" style="position:absolute;left:0;top:0;width:0;height:0;border:0;display:none" frameborder="0" scrolling="no"></iframe>
+<div id="external_nico_0"></div>
+<!-- The client polls this element's HTML for "value=<state> " (space-terminated) to learn the
+     player state; volume and mute reach the page only while it reads playing or paused. -->
+<div id="statusForm" style="position:absolute;left:9px;top:580px;font-size:11px;color:#888">value=playing (statusForm)</div>
+<div id="outside">This line is outside every crop rectangle and should never be visible in game.</div>
+<script>
+(function(){
+  function $(id){ return document.getElementById(id); }
+  var path=(window.location.pathname||'').replace(/^.*\//,'');
+  var kind={ 'room-tv':'room TV', 'channel-screen':'channel screen', 'live-watch':'live billboard' }[path]||'unknown screen';
+  var isLive=path==='live-watch';
+  document.body.className=isLive?'live':'tv';
+  var box=$('flvplayer_container'), main=$('led-main');
+  if(!isLive){ main.appendChild($('title')); main.appendChild($('pulse')); }
+  function corners(rects){
+    for(var r=0;r<rects.length;r++){
+      var x=rects[r][0], y=rects[r][1], w=rects[r][2], h=rects[r][3], n=rects[r][4];
+      if(n){
+        var p=document.createElement('div'); p.className='panel';
+        p.style.left=x+'px'; p.style.top=y+'px'; p.style.width=w+'px'; p.style.height=h+'px';
+        var lab=document.createElement('div'); lab.className='lab'; lab.innerHTML=n; p.appendChild(lab);
+        box.appendChild(p);
+      }
+      var cs=[[x,y],[x+w-12,y],[x,y+h-12],[x+w-12,y+h-12]];
+      for(var j=0;j<cs.length;j++){
+        var c=document.createElement('div'); c.className='corner';
+        c.style.left=cs[j][0]+'px'; c.style.top=cs[j][1]+'px'; box.appendChild(c);
+      }
+    }
+  }
+  // Corner markers on the boxes the panels actually show.
+  corners(isLive?[[7,7,543,53,'top'],[7,65,543,382,'main']]:[[0,0,486,343,'']]);
+  var q={}, search=(window.location.search||'').substring(1).split('&');
+  for(var i=0;i<search.length;i++){ if(!search[i]) continue; var kv=search[i].split('='); try{ q[decodeURIComponent(kv[0])]=decodeURIComponent((kv[1]||'').replace(/\+/g,' ')); }catch(e){ q[kv[0]]=kv[1]; } }
+  var params=[]; for(var k in q) if(q.hasOwnProperty(k)) params.push(k+'='+q[k]);
+  var meta=$('meta'), calls=$('calls'), ext=$('external_nico_0'), pulse=$('pulse');
+  var mode=document.documentMode||'none', t0=new Date().getTime(), log=[];
+  var state={ volume:100, mute:false, repeat:true, comment:true, playhead:0, total:0 };
+  function note(s){ log.unshift(s); if(log.length>6) log.length=6; calls.innerHTML=log.join('<br>'); }
+  // The launcher hook reads volume, mute and the source to play from the title; the server put
+  // the source there when this page was served, and it must survive every update.
+  var src=(function(){ var m=/;src=(.*)$/.exec(document.title||''); return m?m[1]:''; })();
+  var frame=$('frame'), bannerFrame=$('banner');
+  function isPage(v){ return /^https?:\/\//i.test(v); }
+  // "<main> [<banner page>]": the main source goes to the main box, a second word is a web page
+  // for the Stage banner. Stream sources are published for the hook; pages are framed here.
+  function mainOf(v){ return (v||'').split(' ')[0]; }
+  function bannerOf(v){ var w=(v||'').split(' '); return w.length>1?w[1]:''; }
+  function publish(){
+    var m=mainOf(src);
+    document.title='aisp:vol='+state.volume+';mute='+(state.mute?1:0)+(m&&!isPage(m)&&m!=='blank'?';src='+m:'');
+  }
+  // While a real source is up, the page is a blank black base under it.
+  function showDiagnostics(on){
+    var ids=['title','meta','calls','pulse','statusForm'];
+    for(var i=0;i<ids.length;i++){ var e=$(ids[i]); if(e) e.style.visibility=on?'visible':'hidden'; }
+    var leds=[$('led-top'),$('led-main')];
+    for(var k=0;k<leds.length;k++) leds[k].style.background=on?'#1a1a2e':'#000';
+    var cs=document.getElementsByTagName('div');
+    for(var j=0;j<cs.length;j++) if(cs[j].className==='corner'||cs[j].className==='panel') cs[j].style.visibility=on?'visible':'hidden';
+  }
+  // Calibration: a fine grid over the whole crop (lines every 10 px, labels every 50) so a
+  // panel's edges can be read in game. Drawn as page-coordinate lines over everything.
+  var grid=null;
+  function showGrid(on){
+    if(grid){ box.removeChild(grid); grid=null; }
+    if(!on) return;
+    grid=document.createElement('div'); grid.style.position='absolute'; grid.style.left='0'; grid.style.top='0';
+    var W=isLive?950:486, H=isLive?520:343;
+    grid.style.width=W+'px'; grid.style.height=H+'px'; grid.style.background='#fff';
+    for(var y=0;y<=H;y+=10){ var l=document.createElement('div'); l.style.position='absolute'; l.style.left='0'; l.style.top=y+'px'; l.style.width=W+'px'; l.style.height='1px'; l.style.background=(y%50)?'#cde':'#06c'; grid.appendChild(l); }
+    for(var x=0;x<=W;x+=10){ var v=document.createElement('div'); v.style.position='absolute'; v.style.left=x+'px'; v.style.top='0'; v.style.width='1px'; v.style.height=H+'px'; v.style.background=(x%50)?'#cde':'#06c'; grid.appendChild(v); }
+    for(var y2=0;y2<H;y2+=50) for(var x2=0;x2<W;x2+=50){
+      var t=document.createElement('div'); t.style.position='absolute'; t.style.left=(x2+2)+'px'; t.style.top=(y2+1)+'px';
+      t.style.fontSize='9px'; t.style.color='#000'; t.style.lineHeight='9px'; t.innerHTML=x2+'/'+y2; grid.appendChild(t);
+    }
+    box.appendChild(grid);
+  }
+  // c:x1,y1:x2,y2:x3,y3:x4,y4 ... : rectangles by opposite corners, drawn with their numbers so
+  // they can be adjusted from chat until they sit on the panel edges.
+  var rectsLayer=null;
+  function showRects(spec){
+    if(rectsLayer){ box.removeChild(rectsLayer); rectsLayer=null; }
+    if(!spec) return;
+    rectsLayer=document.createElement('div'); rectsLayer.style.position='absolute'; rectsLayer.style.left='0'; rectsLayer.style.top='0';
+    var pts=spec.split(':'), colors=['#f80','#0f0','#f0f','#0ff'];
+    for(var i=0;i+1<pts.length;i+=2){
+      var a=pts[i].split(','), b=pts[i+1].split(',');
+      var x1=Math.min(+a[0],+b[0]), y1=Math.min(+a[1],+b[1]), x2=Math.max(+a[0],+b[0]), y2=Math.max(+a[1],+b[1]);
+      if(isNaN(x1)||isNaN(y1)||isNaN(x2)||isNaN(y2)) continue;
+      var r=document.createElement('div'); r.style.position='absolute'; r.style.left=x1+'px'; r.style.top=y1+'px';
+      r.style.width=(x2-x1)+'px'; r.style.height=(y2-y1)+'px'; r.style.border='2px solid '+colors[(i/2)%colors.length];
+      r.style.boxSizing='border-box';
+      var t=document.createElement('div'); t.style.position='absolute'; t.style.left='6px'; t.style.top='4px'; t.style.fontSize='12px'; t.style.color=colors[(i/2)%colors.length];
+      t.innerHTML=x1+','+y1+' - '+x2+','+y2; r.appendChild(t);
+      rectsLayer.appendChild(r);
+    }
+    box.appendChild(rectsLayer);
+  }
+  function applySource(){
+    var m=mainOf(src), b=bannerOf(src);
+    showGrid(m==='calibrate');
+    showRects(/^c:/i.test(m)?m.substring(2):null);
+    var diagnostic = !m || m==='calibrate' || /^c:/i.test(m);
+    showDiagnostics(diagnostic);
+    if(isPage(m)){
+      // Over the main box, page coordinates: the box plus the crop's own offset.
+      var W=isLive?543:486, H=isLive?382:343, X=isLive?7:9, Y=isLive?65:15;
+      frame.style.left=X+'px'; frame.style.top=Y+'px'; frame.style.width=W+'px'; frame.style.height=H+'px'; frame.style.display='block';
+      if(frame.src!==m) frame.src=m;
+    } else {
+      frame.style.display='none'; if(frame.src) frame.src='about:blank';
+    }
+    if(isLive && isPage(b)){
+      bannerFrame.style.left='7px'; bannerFrame.style.top='7px'; bannerFrame.style.width='543px'; bannerFrame.style.height='53px'; bannerFrame.style.display='block';
+      if(bannerFrame.src!==b) bannerFrame.src=b;
+    } else {
+      bannerFrame.style.display='none'; if(bannerFrame.src) bannerFrame.src='about:blank';
+    }
+    publish();
+  }
+  var retTop=600;
+  // Getters hand back their value through an element the client reads by id and then removes.
+  function ret(name,value){
+    var d=document.createElement('div'); d.id=name; d.className='ret'; d.style.top=(retTop+=14)+'px';
+    d.innerText=String(value); d.value=String(value); document.body.appendChild(d); return value;
+  }
+  ext.ext_play=function(){ note('ext_play'); };
+  ext.ext_setMute=function(m){ note('ext_setMute '+m); state.mute=!!m; publish(); };
+  ext.ext_setPlayheadTime=function(t){ note('ext_setPlayheadTime '+t); state.playhead=Number(t)||0; };
+  ext.ext_setVolume=function(n){ note('ext_setVolume '+n); state.volume=Math.max(0,Math.min(100,Math.round(Number(n)))); publish(); };
+  ext.ext_setCommentVisible=function(b){ note('ext_setCommentVisible '+b); state.comment=!!b; };
+  ext.ext_setRepeat=function(b){ note('ext_setRepeat '+b); state.repeat=!!b; };
+  ext.ext_isMute=function(r){ note('ext_isMute -> '+r); return ret(r, state.mute?1:0); };
+  ext.ext_getVolume=function(r){ note('ext_getVolume -> '+r); return ret(r, state.volume); };
+  ext.ext_isCommentVisible=function(r){ note('ext_isCommentVisible -> '+r); return ret(r, state.comment?1:0); };
+  ext.ext_isRepeat=function(r){ note('ext_isRepeat -> '+r); return ret(r, state.repeat?1:0); };
+  ext.ext_getPlayheadTime=function(r){ note('ext_getPlayheadTime -> '+r); return ret(r, Math.floor((new Date().getTime()-t0)/1000)); };
+  ext.ext_getTotalTime=function(r){ note('ext_getTotalTime -> '+r); return ret(r, state.total); };
+  applySource();
+  // The server may change what this screen plays after the page loaded (/screen); ask it every
+  // few seconds and republish the title, which the hook follows.
+  function pollSource(){
+    try{
+      var xhr=new XMLHttpRequest();
+      xhr.open('GET','screen-source?route='+encodeURIComponent(path)+'&'+(window.location.search||'?').substring(1)+'&_='+new Date().getTime(),true);
+      xhr.onreadystatechange=function(){
+        if(xhr.readyState!==4||xhr.status!==200) return;
+        var m=/"src"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(xhr.responseText||'');
+        var next=m?m[1].replace(/\\"/g,'"').replace(/\\\\/g,'\\'):'';
+        if(next!==src){ src=next; applySource(); }
+      };
+      xhr.send(null);
+    }catch(e){}
+  }
+  setInterval(pollSource,3000);
+  setInterval(function(){
+    var s=Math.floor((new Date().getTime()-t0)/1000);
+    meta.innerHTML=kind+' ('+path+')<br>'+(params.length?params.join(' &nbsp; '):'no parameters')+'<br>mode: '+mode+' &nbsp; clock: '+s+'s &nbsp; volume: '+state.volume+(state.mute?' (muted)':'')+'<br>source: '+(src||'(none, showing this page)');
+    pulse.style.background=(s%2)?'#f80':'#0cf';
+  },250);
+})();
+</script>
+</body></html>

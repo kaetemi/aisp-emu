@@ -96,6 +96,8 @@ public class CmdExecHandlerTests
                 TestTextLocaliser.English,
                 new AdventureWorkRepository(new MainContext(options)),
                 WordFilter.FromTerms([]),
+                new ScreenAssignments(),
+                Options.Create(new ServerOptions()),
                 NullLogger<CmdExecHandler>.Instance
             );
 
@@ -227,6 +229,8 @@ public class CmdExecHandlerTests
                 TestTextLocaliser.English,
                 new AdventureWorkRepository(new MainContext(options)),
                 WordFilter.FromTerms([]),
+                new ScreenAssignments(),
+                Options.Create(new ServerOptions()),
                 NullLogger<CmdExecHandler>.Instance
             );
 
@@ -252,7 +256,11 @@ public class CmdExecHandlerTests
             var reader = new PacketReader(notice.Payload);
             reader.ReadUInt();
             reader.ReadUInt();
-            Assert.Contains("target", reader.ReadString("utf-8"), StringComparison.OrdinalIgnoreCase);
+            Assert.Contains(
+                "target",
+                reader.ReadString("utf-8"),
+                StringComparison.OrdinalIgnoreCase
+            );
         }
         finally
         {
@@ -339,6 +347,8 @@ public class CmdExecHandlerTests
                 TestTextLocaliser.English,
                 new AdventureWorkRepository(new MainContext(options)),
                 WordFilter.FromTerms([]),
+                new ScreenAssignments(),
+                Options.Create(new ServerOptions()),
                 NullLogger<CmdExecHandler>.Instance
             );
 
@@ -439,6 +449,8 @@ public class CmdExecHandlerTests
                 TestTextLocaliser.English,
                 new AdventureWorkRepository(new MainContext(options)),
                 WordFilter.FromTerms([]),
+                new ScreenAssignments(),
+                Options.Create(new ServerOptions()),
                 NullLogger<CmdExecHandler>.Instance
             );
 
@@ -581,6 +593,8 @@ public class CmdExecHandlerTests
                 TestTextLocaliser.English,
                 new AdventureWorkRepository(new MainContext(options)),
                 WordFilter.FromTerms(["faggot"]),
+                new ScreenAssignments(),
+                Options.Create(new ServerOptions()),
                 NullLogger<CmdExecHandler>.Instance
             );
 
@@ -814,6 +828,8 @@ public class CmdExecHandlerTests
                 TestTextLocaliser.English,
                 new AdventureWorkRepository(new MainContext(options)),
                 WordFilter.FromTerms([]),
+                new ScreenAssignments(),
+                Options.Create(new ServerOptions()),
                 NullLogger<CmdExecHandler>.Instance
             );
 
@@ -892,6 +908,8 @@ public class CmdExecHandlerTests
                 TestTextLocaliser.English,
                 new AdventureWorkRepository(new MainContext(options)),
                 WordFilter.FromTerms([]),
+                new ScreenAssignments(),
+                Options.Create(new ServerOptions()),
                 NullLogger<CmdExecHandler>.Instance
             );
 
@@ -972,6 +990,8 @@ public class CmdExecHandlerTests
                 TestTextLocaliser.English,
                 new AdventureWorkRepository(new MainContext(options)),
                 WordFilter.FromTerms([]),
+                new ScreenAssignments(),
+                Options.Create(new ServerOptions()),
                 NullLogger<CmdExecHandler>.Instance
             );
 
@@ -1044,6 +1064,8 @@ public class CmdExecHandlerTests
                 TestTextLocaliser.English,
                 new AdventureWorkRepository(new MainContext(options)),
                 WordFilter.FromTerms([]),
+                new ScreenAssignments(),
+                Options.Create(new ServerOptions()),
                 NullLogger<CmdExecHandler>.Instance
             );
 
@@ -1134,6 +1156,8 @@ public class CmdExecHandlerTests
                 TestTextLocaliser.English,
                 new AdventureWorkRepository(new MainContext(options)),
                 WordFilter.FromTerms([]),
+                new ScreenAssignments(),
+                Options.Create(new ServerOptions()),
                 NullLogger<CmdExecHandler>.Instance
             );
 
@@ -1227,6 +1251,8 @@ public class CmdExecHandlerTests
                 TestTextLocaliser.English,
                 new AdventureWorkRepository(new MainContext(options)),
                 WordFilter.FromTerms([]),
+                new ScreenAssignments(),
+                Options.Create(new ServerOptions()),
                 NullLogger<CmdExecHandler>.Instance
             );
 
@@ -1316,6 +1342,8 @@ public class CmdExecHandlerTests
                 TestTextLocaliser.English,
                 new AdventureWorkRepository(new MainContext(options)),
                 WordFilter.FromTerms([]),
+                new ScreenAssignments(),
+                Options.Create(new ServerOptions()),
                 NullLogger<CmdExecHandler>.Instance
             );
 
@@ -1389,6 +1417,8 @@ public class CmdExecHandlerTests
                 TestTextLocaliser.English,
                 new AdventureWorkRepository(new MainContext(options)),
                 WordFilter.FromTerms([]),
+                new ScreenAssignments(),
+                Options.Create(new ServerOptions()),
                 NullLogger<CmdExecHandler>.Instance
             );
 
@@ -1518,6 +1548,8 @@ public class CmdExecHandlerTests
                 TestTextLocaliser.English,
                 new AdventureWorkRepository(new MainContext(options)),
                 WordFilter.FromTerms([]),
+                new ScreenAssignments(),
+                Options.Create(new ServerOptions()),
                 NullLogger<CmdExecHandler>.Instance
             );
 
@@ -2061,6 +2093,8 @@ public class CmdExecHandlerTests
             TestTextLocaliser.English,
             new AdventureWorkRepository(new MainContext(options)),
             WordFilter.FromTerms([]),
+            new ScreenAssignments(),
+            Options.Create(new ServerOptions()),
             NullLogger<CmdExecHandler>.Instance
         );
 

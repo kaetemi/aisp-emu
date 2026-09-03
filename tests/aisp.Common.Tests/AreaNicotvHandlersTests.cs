@@ -351,7 +351,12 @@ public sealed class AreaNicotvHandlersTests
                 ct
             );
 
-            Assert.Equal(PacketType.NicotvSetMovieResponse, Assert.Single(actor.Sent).Type);
+            // The client's set_movie_r handler is a no-op, so the sender needs the notify as well
+            // to load the movie on its own TV.
+            Assert.Equal(
+                [PacketType.NotifyNicotvSetMovie, PacketType.NicotvSetMovieResponse],
+                actor.Sent.Select(p => p.Type)
+            );
             Assert.Equal(PacketType.NotifyNicotvSetMovie, Assert.Single(peer.Sent).Type);
             Assert.Equal("sm9", nicotv.MovieId);
         }

@@ -1,3 +1,4 @@
+using aisp.Common.Config;
 using aisp.Common.DAL.Repositories;
 using aisp.Common.Game;
 using aisp.Common.Handlers.Area;
@@ -9,6 +10,7 @@ using aisp.Network.Packets.Area;
 using aisp.Network.Packets.Msg;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Character = aisp.Common.DAL.Entities.Character;
 
 namespace aisp.Common.Handlers.Msg;
@@ -28,6 +30,8 @@ public class CmdExecHandler(
     ITextLocaliser localiser,
     IAdventureWorkRepository adventureWorks,
     IWordFilter wordFilter,
+    ScreenAssignments screenAssignments,
+    IOptions<ServerOptions> serverOptions,
     ILogger<CmdExecHandler> logger
 ) : IPacketHandler, IRequiresAuthenticatedSession
 {
@@ -72,6 +76,12 @@ public class CmdExecHandler(
                     session.User?.Id ?? session.UserId
                 );
             }
+            return;
+        }
+
+        if (cmd is "screen" or "display")
+        {
+            await HandleScreenCommandAsync(session, request.Arguments, ct);
             return;
         }
 
@@ -913,6 +923,94 @@ public class CmdExecHandler(
         return null;
     }
 
+    /// <summary>
+    /// /screen &lt;source&gt; plays a source on every in-game screen of the map the player is on
+    /// (the Akihabara display, the Stage billboard, TVs on a channel): twitch:&lt;channel&gt; or
+    /// stream:&lt;url&gt; for the launcher hook to decode, or an http(s) URL of a web page to show.
+    /// /screen off clears it; /screen alone shows it.
+    /// Live billboards reload at once through notify_nicolive_reload; every open screen page also
+    /// polls the server for its source every few seconds, so channel screens follow within that
+    /// (the client itself only loads them on map entry and has no packet to reload them).
+    /// </summary>
+    private async Task HandleScreenCommandAsync(
+        IPlayerSession session,
+        IReadOnlyList<string> args,
+        CancellationToken ct
+    )
+    {
+        if (session.User is not { } actor || !actor.Role.CanKickOrBan())
+        {
+            await SendSystemNoticeAsync(session, "/screen is for moderators.", ct);
+            return;
+        }
+        var areaClient = ResolveAreaClient(session);
+        if (areaClient is null)
+        {
+            await SendSystemNoticeAsync(session, "/screen needs you to be on a map.", ct);
+            return;
+        }
+        var mapId = areaClient.MapId;
+        if (args.Count == 0)
+        {
+            var current = screenAssignments.Get(mapId);
+            await SendSystemNoticeAsync(
+                session,
+                current is null
+                    ? $"Map {mapId}: screens show the default page. /screen twitch:<channel> | stream:<url> | <page url> | off"
+                    : $"Map {mapId}: screens play {current}. /screen off to clear.",
+                ct
+            );
+            return;
+        }
+
+        // The client splits command arguments on commas; the c: rectangle syntax uses them.
+        var source = (
+            args[0].StartsWith("c:", StringComparison.OrdinalIgnoreCase)
+                ? string.Join(",", args)
+                : string.Join(" ", args)
+        ).Trim();
+        var clearing = source is "off" or "clear" or "none";
+        if (clearing)
+            screenAssignments.Clear(mapId);
+        else if (ScreenAssignments.IsValidSource(source))
+            screenAssignments.Set(mapId, source);
+        else
+        {
+            await SendSystemNoticeAsync(
+                session,
+                "/screen takes twitch:<channel> (or tw:), stream:<url>, a web page http(s) URL, blank, testscreen, calibrate, c:x1,y1:x2,y2:..., or off; add a page URL as a second word for the Stage banner.",
+                ct
+            );
+            return;
+        }
+        logger.LogInformation(
+            "CmdExecHandler: user {UserId} set the screens of map {MapId} to {Source}",
+            actor.Id,
+            mapId,
+            clearing ? "(default)" : source
+        );
+
+        // Live billboards re-navigate on this notify; the page they fetch carries the new source.
+        var liveId = serverOptions.Value.NicoLive.LiveId?.Trim() ?? "";
+        var reload = new NotifyNicoliveReload(liveId).ToBytes();
+        var reloaded = 0;
+        if (!string.IsNullOrEmpty(liveId))
+        {
+            foreach (var client in state.AreaClients.Where(c => c.MapId == mapId))
+            {
+                await client.SendAsync(PacketType.NotifyNicoliveReload, reload, ct);
+                reloaded++;
+            }
+        }
+        await SendSystemNoticeAsync(
+            session,
+            clearing
+                ? $"Map {mapId}: screens back to the default page ({reloaded} client(s) told); open screens follow within a few seconds."
+                : $"Map {mapId}: screens set to {source} ({reloaded} client(s) told); open screens follow within a few seconds.",
+            ct
+        );
+    }
+
     private async Task HandleKickCommandAsync(
         IPlayerSession session,
         IReadOnlyList<string> args,
@@ -1279,7 +1377,11 @@ public class CmdExecHandler(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "CmdExecHandler: failed to create report ticket for user {UserId}", user.Id);
+            logger.LogError(
+                ex,
+                "CmdExecHandler: failed to create report ticket for user {UserId}",
+                user.Id
+            );
             await SendModerationNoticeAsync(session, L.Cmd.ReportFailed, ct);
         }
     }
