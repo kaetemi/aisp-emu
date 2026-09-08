@@ -1197,10 +1197,7 @@ public class CmdExecHandlerTests
                 expectedItems.Count,
                 areaSession.Sent.Count(p => p.Type == PacketType.ItemCreateNotify)
             );
-            Assert.DoesNotContain(
-                areaSession.Sent,
-                p => p.Type == PacketType.ItemUpdateListNotify
-            );
+            Assert.DoesNotContain(areaSession.Sent, p => p.Type == PacketType.ItemUpdateListNotify);
             Assert.Contains(msgSession.Sent, packet => packet.Type == PacketType.CmdExecResponse);
         }
         finally
@@ -1412,10 +1409,7 @@ public class CmdExecHandlerTests
             Assert.Equal(1, inventory.Quantity);
 
             Assert.Equal(1, areaSession.Sent.Count(p => p.Type == PacketType.ItemCreateNotify));
-            Assert.DoesNotContain(
-                areaSession.Sent,
-                p => p.Type == PacketType.ItemUpdateListNotify
-            );
+            Assert.DoesNotContain(areaSession.Sent, p => p.Type == PacketType.ItemUpdateListNotify);
             Assert.Contains(msgSession.Sent, packet => packet.Type == PacketType.CmdExecResponse);
         }
         finally
@@ -2298,12 +2292,13 @@ public class CmdExecHandlerTests
                 modMsgSession,
                 TestContext.Current.CancellationToken
             );
-            Assert.Equal("twitch:someone", screenAssignments.GetChannelSource(2));
+            Assert.Equal("tw:someone", screenAssignments.GetChannelSource(2));
 
             // A room TV tuned to that channel (via channel:2, the same word /screen channel:2
-            // would bind a map to) resolves the assigned stream, not the title card.
+            // would bind a map to) resolves the assigned stream (tw: as the embed, the default),
+            // not the title card.
             Assert.Equal(
-                "streamlink:https://twitch.tv/someone",
+                "electron:https://player.twitch.tv/?channel=someone&parent=aisp.moe",
                 screenAssignments.Resolve("room-tv", "channel:2 n:5", null)
             );
 

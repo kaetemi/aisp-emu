@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Globalization;
+using aisp.Common.Config;
 
 namespace aisp.Common.Game;
 
@@ -11,17 +12,23 @@ namespace aisp.Common.Game;
 /// map, set with the /screen chat command.
 ///
 /// The ids anyone may type into a room TV (fetched by every viewer's client, so only short ids
-/// that expand to a known site): title, pattern:live, pattern:vod, tw:&lt;channel&gt; (Twitch
-/// through streamlink), twe:&lt;channel&gt; (the Twitch player embed in the off-screen browser),
-/// yt:&lt;id&gt; (a YouTube video through yt-dlp), ytl:&lt;id&gt; (a YouTube live through
-/// streamlink), lv… (Nico Live through streamlink), lv…:vod (the same, once archived, as a
-/// video through yt-dlp instead) and sm… (a Nico video through yt-dlp).
+/// that expand to a known site): title, pattern:live, pattern:vod, twe:&lt;channel&gt; (the Twitch
+/// player embed in the off-screen browser), twl:&lt;channel&gt; (Twitch through streamlink),
+/// tw:&lt;channel&gt; (either, as the server is configured: <see cref="ScreenSourceDefaults"/>),
+/// yte:&lt;id&gt; (a YouTube video as YouTube's own embed in the off-screen browser, looping),
+/// ytd:&lt;id&gt; (the same through yt-dlp), yt:&lt;id&gt; (either, as configured), ytl:&lt;id&gt;
+/// (a YouTube live through streamlink), lv… (Nico Live through streamlink), lv…:vod (the same,
+/// once archived, as a video through yt-dlp instead) and sm… (a Nico video through yt-dlp).
 /// Only /screen takes streamlink:&lt;url&gt;, stream:&lt;url&gt;, electron:&lt;url&gt; and a
 /// web page URL.
 /// </summary>
-public sealed class ScreenAssignments(TimeProvider? time = null)
+public sealed class ScreenAssignments(
+    TimeProvider? time = null,
+    ScreenSourceDefaults? defaults = null
+)
 {
     private readonly TimeProvider _time = time ?? TimeProvider.System;
+    private readonly ScreenSourceDefaults _defaults = defaults ?? ScreenSourceDefaults.Default;
     private readonly ConcurrentDictionary<uint, Entry> _byMap = new();
 
     // Timelines of videos typed into room TVs, by the furniture's own database id where known
@@ -199,6 +206,29 @@ public sealed class ScreenAssignments(TimeProvider? time = null)
         return null;
     }
 
+    /// <summary>
+    /// The hook source of a video with its timeline: the start/offset/paused words for the page
+    /// to publish, and for the YouTube embed the same values in its page URL, since the
+    /// off-screen browser only gets the URL (and a changed URL restarts it at the new position).
+    /// </summary>
+    private static string WithTimeline(string hookSource, Timeline timeline)
+    {
+        var words = hookSource.Split(' ').ToList();
+        if (words[0].StartsWith("electron:" + YouTubeEmbedPage + "?", StringComparison.Ordinal))
+        {
+            words[0] +=
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"&start={timeline.StartedAt.ToUnixTimeSeconds()}&offset={timeline.Offset:0.###}"
+                )
+                + (
+                    timeline.Paused ? "&paused=" + timeline.PausedAt!.Value.ToUnixTimeSeconds() : ""
+                );
+        }
+        words.Add(TimelineWords(timeline));
+        return string.Join(' ', words);
+    }
+
     private static string TimelineWords(Timeline timeline) =>
         string.Create(
             CultureInfo.InvariantCulture,
@@ -241,8 +271,8 @@ public sealed class ScreenAssignments(TimeProvider? time = null)
     public const uint StageMapId = 19_001_003;
 
     /// <summary>
-    /// Canonical form of a source: trimmed, with the typed short ids expanded to their prefixed
-    /// forms (tw: to twitch:, a bare lv… or sm… id to nico:, bare pattern to pattern:live). A
+    /// Canonical form of a source: trimmed, with the typed short ids in their prefixed forms
+    /// (twitch: to tw:, a bare lv… or sm… id to nico:, bare pattern to pattern:live). A
     /// source is "&lt;main&gt; [main:&lt;url&gt;] [banner:&lt;url&gt;] [&lt;url&gt;] [box:x/y/w/h]
     /// [crop:sw/sh:cx/cy] [scrollx:N] [scrolly:N] [scroll:x/y] [scale:N] [key[:RRGGBB]] [fps:N]
     /// [rolloff:…] [pan]": main:&lt;url&gt; is a frame page under the main panel, with the box
@@ -259,8 +289,8 @@ public sealed class ScreenAssignments(TimeProvider? time = null)
         if (words.Length == 0)
             return "";
         var main = words[0];
-        if (main.StartsWith("tw:", StringComparison.OrdinalIgnoreCase))
-            main = "twitch:" + main[3..];
+        if (main.StartsWith("twitch:", StringComparison.OrdinalIgnoreCase))
+            main = "tw:" + main[7..];
         else if (IsNicoLiveId(main) || IsNicoVideoId(main) || IsNicoLiveVodId(main))
             main = "nico:" + main;
         else if (string.Equals(main, "pattern", StringComparison.OrdinalIgnoreCase))
@@ -510,13 +540,18 @@ public sealed class ScreenAssignments(TimeProvider? time = null)
     private static bool HasPrefix(string main, string prefix, Func<string, bool> rest) =>
         main.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) && rest(main[prefix.Length..]);
 
-    /// <summary>twitch:&lt;channel&gt; (tw: for short): a Twitch live stream through streamlink.</summary>
+    /// <summary>tw:&lt;channel&gt; (twitch: is an alias): a Twitch live stream, as the embed or
+    /// through streamlink as the server is configured (<see cref="ScreenSourceDefaults"/>).</summary>
     public static bool IsTwitchSource(string? source) =>
-        source is not null && HasPrefix(MainOf(source), "twitch:", IsTwitchChannel);
+        source is not null && HasPrefix(MainOf(source), "tw:", IsTwitchChannel);
 
     /// <summary>twe:&lt;channel&gt;: the Twitch player embed in the off-screen browser.</summary>
     public static bool IsTwitchEmbedSource(string? source) =>
         source is not null && HasPrefix(MainOf(source), "twe:", IsTwitchChannel);
+
+    /// <summary>twl:&lt;channel&gt;: a Twitch live stream through streamlink.</summary>
+    public static bool IsTwitchStreamlinkSource(string? source) =>
+        source is not null && HasPrefix(MainOf(source), "twl:", IsTwitchChannel);
 
     /// <summary>nico:lv… (a bare lv… id): a Nico Live programme through streamlink.</summary>
     public static bool IsNicoLiveSource(string? source) =>
@@ -531,9 +566,27 @@ public sealed class ScreenAssignments(TimeProvider? time = null)
     public static bool IsNicoVideoSource(string? source) =>
         source is not null && HasPrefix(MainOf(source), "nico:", IsNicoVideoId);
 
-    /// <summary>yt:&lt;id&gt;: a YouTube video through yt-dlp, with a shared timeline.</summary>
+    /// <summary>yt:&lt;id&gt;: a YouTube video with a shared timeline, as the embed or through
+    /// yt-dlp as the server is configured (<see cref="ScreenSourceDefaults"/>).</summary>
     public static bool IsYouTubeVideoSource(string? source) =>
         source is not null && HasPrefix(MainOf(source), "yt:", IsYouTubeId);
+
+    /// <summary>ytd:&lt;id&gt;: a YouTube video through yt-dlp, with a shared timeline.</summary>
+    public static bool IsYouTubeDlpSource(string? source) =>
+        source is not null && HasPrefix(MainOf(source), "ytd:", IsYouTubeId);
+
+    /// <summary>
+    /// yte:&lt;id&gt;: a YouTube video as YouTube's own player embed, in the off-screen browser,
+    /// looping. The embed only plays inside a page (bare, YouTube refuses it), so it goes through
+    /// this server's own /ai-sp/yt-embed page, which the hook fetches from wherever it got the
+    /// screen page (the URL is root-relative). A video with a shared timeline like yt:, put into
+    /// that page's URL too, so the embed can seek to it and pause with it.
+    /// </summary>
+    public static bool IsYouTubeEmbedSource(string? source) =>
+        source is not null && HasPrefix(MainOf(source), "yte:", IsYouTubeId);
+
+    /// <summary>The root-relative page yte: expands to, before its query.</summary>
+    public const string YouTubeEmbedPage = "/ai-sp/yt-embed";
 
     /// <summary>ytl:&lt;id&gt;: a YouTube live stream through streamlink.</summary>
     public static bool IsYouTubeLiveSource(string? source) =>
@@ -554,9 +607,17 @@ public sealed class ScreenAssignments(TimeProvider? time = null)
     public static bool IsElectronSource(string? source) =>
         source is not null && HasPrefix(MainOf(source), "electron:", IsPageUrl);
 
-    /// <summary>Sources the off-screen browser shows: electron:&lt;url&gt; and the Twitch embed.</summary>
-    public static bool IsBrowserSource(string? source) =>
-        IsElectronSource(source) || IsTwitchEmbedSource(source);
+    /// <summary>Sources the off-screen browser shows: electron:&lt;url&gt;, the Twitch and YouTube
+    /// embeds, and tw:/yt: when the defaults send them to the embeds.</summary>
+    public static bool IsBrowserSource(string? source, ScreenSourceDefaults? defaults = null)
+    {
+        var d = defaults ?? ScreenSourceDefaults.Default;
+        return IsElectronSource(source)
+            || IsTwitchEmbedSource(source)
+            || IsYouTubeEmbedSource(source)
+            || (d.TwitchEmbed && IsTwitchSource(source))
+            || (d.YouTubeEmbed && IsYouTubeVideoSource(source));
+    }
 
     /// <summary>
     /// channel:&lt;n&gt;: indirects to whatever /channel assigned channel n (see
@@ -600,10 +661,12 @@ public sealed class ScreenAssignments(TimeProvider? time = null)
         && !IsVideoSource(source)
         && !IsChannelSource(source);
 
-    /// <summary>A video with a shared timeline (not a live stream): yt:, sm… and pattern:vod.
-    /// The hook seeks to the shared position and /screen pause, resume and seek move it.</summary>
+    /// <summary>A video with a shared timeline (not a live stream): yt:, yte:, ytd:, sm… and
+    /// pattern:vod. The hook seeks to the shared position and /screen pause, resume and seek move it.</summary>
     public static bool IsVideoSource(string? source) =>
         IsYouTubeVideoSource(source)
+        || IsYouTubeEmbedSource(source)
+        || IsYouTubeDlpSource(source)
         || IsNicoVideoSource(source)
         || IsNicoLiveVodSource(source)
         || (
@@ -618,6 +681,7 @@ public sealed class ScreenAssignments(TimeProvider? time = null)
     public static bool IsTypedSource(string? source) =>
         IsTwitchSource(source)
         || IsTwitchEmbedSource(source)
+        || IsTwitchStreamlinkSource(source)
         || IsNicoLiveSource(source)
         || IsYouTubeLiveSource(source)
         || IsVideoSource(source)
@@ -695,14 +759,22 @@ public sealed class ScreenAssignments(TimeProvider? time = null)
     /// The form the launcher hook understands: streamlink:&lt;url&gt; (anything streamlink
     /// opens), stream:&lt;url&gt; (anything ffmpeg opens), yt-dlp:&lt;url&gt; (a video it seeks),
     /// pattern:live, pattern:vod and electron:&lt;http(s) url&gt;; the friendly ids are
-    /// vocabulary of this server. Page URLs and the page's own keywords pass through.
+    /// vocabulary of this server, and tw:/yt: go where `defaults` says (the server's
+    /// configuration; the built-in default is the embeds). Page URLs and the page's own keywords
+    /// pass through.
     /// </summary>
-    public static string ToHookSource(string source)
+    public static string ToHookSource(string source, ScreenSourceDefaults? defaults = null)
     {
+        var d = defaults ?? ScreenSourceDefaults.Default;
         var words = Normalize(source).Split(' ');
         var main = words[0];
+        // The short forms that leave the choice to the server go the way it is configured.
         if (IsTwitchSource(main))
-            main = "streamlink:https://twitch.tv/" + main[7..];
+            main = (d.TwitchEmbed ? "twe:" : "twl:") + main[3..];
+        else if (IsYouTubeVideoSource(main))
+            main = (d.YouTubeEmbed ? "yte:" : "ytd:") + main[3..];
+        if (IsTwitchStreamlinkSource(main))
+            main = "streamlink:https://twitch.tv/" + main[4..];
         else if (IsTwitchEmbedSource(main))
             main =
                 "electron:https://player.twitch.tv/?channel="
@@ -715,8 +787,10 @@ public sealed class ScreenAssignments(TimeProvider? time = null)
             main = "streamlink:https://live.nicovideo.jp/watch/" + main[5..];
         else if (IsNicoVideoSource(main))
             main = "yt-dlp:https://www.nicovideo.jp/watch/" + main[5..];
-        else if (IsYouTubeVideoSource(main))
-            main = "yt-dlp:https://www.youtube.com/watch?v=" + main[3..];
+        else if (IsYouTubeDlpSource(main))
+            main = "yt-dlp:https://www.youtube.com/watch?v=" + main[4..];
+        else if (IsYouTubeEmbedSource(main))
+            main = "electron:" + YouTubeEmbedPage + "?v=" + main[4..];
         else if (IsYouTubeLiveSource(main))
             main = "streamlink:https://www.youtube.com/watch?v=" + main[4..];
         return string.Join(' ', new[] { main }.Concat(words.Skip(1)));
@@ -780,22 +854,22 @@ public sealed class ScreenAssignments(TimeProvider? time = null)
                     RoomTvKey(mapId ?? 0, channel, movieId),
                     _ => new Timeline(_time.GetUtcNow(), 0, null)
                 );
-                return ToHookSource(typed) + " " + TimelineWords(timeline);
+                return WithTimeline(ToHookSource(typed, _defaults), timeline);
             }
             if (IsTypedSource(typed))
-                return ToHookSource(ResolveChannelIndirection(typed, requestTvId));
+                return ToHookSource(ResolveChannelIndirection(typed, requestTvId), _defaults);
         }
         var entry = mapId is { } map && _byMap.TryGetValue(map, out var found) ? found : null;
         if (entry is null)
             return route == "room-tv"
                 ? Blank
-                : ToHookSource(ResolveChannelIndirection("channel:auto", requestTvId));
+                : ToHookSource(ResolveChannelIndirection("channel:auto", requestTvId), _defaults);
         if (string.Equals(entry.Source, TestScreen, StringComparison.OrdinalIgnoreCase))
             return null;
         var assigned = ResolveChannelIndirection(entry.Source, requestTvId);
         // Town screens attenuate with distance by default; an explicit rolloff word wins, filled
         // out to the hook's seven-number form; rolloff:flat drops it.
-        var words = ToHookSource(assigned).Split(' ').ToList();
+        var words = ToHookSource(assigned, _defaults).Split(' ').ToList();
         var rolloffIndex = words.FindIndex(IsRolloffWord);
         if (rolloffIndex >= 0)
         {
@@ -813,8 +887,33 @@ public sealed class ScreenAssignments(TimeProvider? time = null)
         {
             words.Add(defaultRolloff);
         }
-        if (IsVideoSource(assigned))
-            words.Add(TimelineWords(entry.Timeline));
-        return string.Join(' ', words);
+        var joined = string.Join(' ', words);
+        return IsVideoSource(assigned) ? WithTimeline(joined, entry.Timeline) : joined;
     }
+}
+
+/// <summary>
+/// Where the short ids that leave the choice to the server go: tw: to the Twitch embed (twe:)
+/// or streamlink (twl:), yt: to the YouTube embed (yte:) or yt-dlp (ytd:). The embeds are the
+/// built-in default: nothing to install on the viewer's side, and YouTube is friendlier to its
+/// own player than to yt-dlp. From the server's [Server:Screens] settings, whose values are the
+/// hook sources each becomes: electron, streamlink, yt-dlp.
+/// </summary>
+public sealed record ScreenSourceDefaults(bool TwitchEmbed = true, bool YouTubeEmbed = true)
+{
+    public static readonly ScreenSourceDefaults Default = new();
+
+    public static ScreenSourceDefaults FromOptions(ScreenOptions options) =>
+        new(
+            TwitchEmbed: !string.Equals(
+                options.Twitch,
+                "streamlink",
+                StringComparison.OrdinalIgnoreCase
+            ),
+            YouTubeEmbed: !string.Equals(
+                options.YouTube,
+                "yt-dlp",
+                StringComparison.OrdinalIgnoreCase
+            )
+        );
 }

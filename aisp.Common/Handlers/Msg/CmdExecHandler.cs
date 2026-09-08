@@ -933,7 +933,7 @@ public class CmdExecHandler(
     /// <summary>
     /// /screen &lt;source&gt; plays a source on every in-game screen of the map the player is on
     /// (the Akihabara display, the Stage billboard, TVs on a channel): the ids anyone may type
-    /// into a room TV (tw:, twe:, yt:, ytl:, lv…, lv…:vod, sm…, pattern:live, pattern:vod,
+    /// into a room TV (tw:, twe:, twl:, yt:, yte:, ytd:, ytl:, lv…, lv…:vod, sm…, pattern:live, pattern:vod,
     /// title), plus streamlink:&lt;url&gt; or stream:&lt;url&gt; for the launcher hook to decode,
     /// electron:&lt;http(s) url&gt; for an off-screen browser overlay, or an http(s) URL of a
     /// web page to show in IE. /screen off clears it; /screen alone shows it.
@@ -1002,8 +1002,8 @@ public class CmdExecHandler(
         {
             await SendSystemNoticeAsync(
                 session,
-                "/screen <source> [extras]. Sources: tw:<channel> (Twitch), twe:<channel> (Twitch embed), ytl:<id> (YouTube live), lv<id> (Nico Live),\n"
-                    + "yt:<id> (YouTube), sm<id> (Nico video), lv<id>:vod (an archived Nico Live, once Nico has one) or pattern:vod (videos, played in step by everyone; then /screen pause, resume, seek <seconds>),\n"
+                "/screen <source> [extras]. Sources: tw:<channel> (Twitch, the embed or streamlink as the server is set), twe:<channel> (Twitch's embed), twl:<channel> (Twitch through streamlink), ytl:<id> (YouTube live through streamlink), lv<id> (Nico Live),\n"
+                    + "yt:<id> (YouTube, the embed or yt-dlp as the server is set), yte:<id> (YouTube's own embed, looping), ytd:<id> (YouTube through yt-dlp), sm<id> (Nico video), lv<id>:vod (an archived Nico Live, once Nico has one) or pattern:vod (videos, played in step by everyone; then /screen pause, resume, seek <seconds>),\n"
                     + "pattern:live (the hook's own test picture and tone), streamlink:<url>, stream:<url>, electron:<http(s) url> (off-screen browser), a web page URL,\n"
                     + "channel:<n> (follows whatever /channel <n> <source> is showing), channel:auto (follows this screen's own tvid=, if it has one; the title card without one),\n"
                     + "blank, title, testscreen, calibrate, c:x1/y1:x2/y2:..., or off.\n"
