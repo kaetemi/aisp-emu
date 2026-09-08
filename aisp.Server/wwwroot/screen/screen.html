@@ -154,6 +154,9 @@ body.tv #comments{top:36px}
   function wordOf(v,name){ var w=(v||'').split(' '), re=new RegExp('^'+name+':(https?://.+)$','i'); for(var i=1;i<w.length;i++){ var m=re.exec(w[i]); if(m) return m[1]; } return ''; }
   function mainPageOf(v){ return wordOf(v,'main'); }
   function bannerOf(v){ return wordOf(v,'banner'); }
+  // run:<url>: a script the hook's browser host runs in an electron: source's page once loaded;
+  // an http(s) URL or a root-relative path of this server's, passed on as is.
+  function runOf(v){ var w=(v||'').split(' '); for(var i=1;i<w.length;i++){ var m=/^run:((?:https?:\/\/|\/)[^;\s]+)$/i.exec(w[i]); if(m) return m[1]; } return ''; }
   function rawPageOf(v){ var w=(v||'').split(' '); for(var i=1;i<w.length;i++) if(isPage(w[i])) return w[i]; return ''; }
   function hasBox(v){ var w=(v||'').split(' '); for(var i=1;i<w.length;i++) if(/^box:/i.test(w[i])) return true; return false; }
   // The main panel, in crop coordinates: a TV shows all of its crop, the Stage wall its main LED.
@@ -242,7 +245,7 @@ body.tv #comments{top:36px}
   function publish(){
     var m=mainOf(src), b=geometry(src).crop, browser=/^electron:/i.test(m), cr=cropOf(src,b), sc=browser?scrollOf(src):null, sca=browser?scaleOf(src):0, k=publishedKey(src), f=fpsOf(src), ro=rolloffOf(src), pn=panOf(src), tl=timelineOf(src);
     var stream=m&&!isPage(m)&&m!=='blank'&&m!=='title';
-    document.title='aisp:vol='+state.volume+';mute='+(state.mute?1:0)+';box='+b.join(',')+(cr?';crop='+cr:'')+(sc?';scrollx='+sc[0]+';scrolly='+sc[1]:'')+(sca?';scale='+sca:'')+(k?';key='+k:'')+(stream&&clearable?';clear=1':'')+(f?';fps='+f:'')+(ro?';rolloff='+ro:'')+(pn?';pan=1':'')
+    document.title='aisp:vol='+state.volume+';mute='+(state.mute?1:0)+';box='+b.join(',')+(cr?';crop='+cr:'')+(sc?';scrollx='+sc[0]+';scrolly='+sc[1]:'')+(sca?';scale='+sca:'')+(runOf(src)?';run='+runOf(src):'')+(k?';key='+k:'')+(stream&&clearable?';clear=1':'')+(f?';fps='+f:'')+(ro?';rolloff='+ro:'')+(pn?';pan=1':'')
       +(tl.start?';start='+tl.start+';offset='+tl.offset+(tl.paused?';paused='+tl.paused:''):'')+(state.paused?';hold=1':'')+(stream?';src='+m:'');
     // The client forwards volume, and flushes a pending comment-visibility toggle, only while
     // the state is playing or paused; it reads the word from this element's innerHTML.

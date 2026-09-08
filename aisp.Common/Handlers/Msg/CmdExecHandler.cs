@@ -1041,7 +1041,7 @@ public class CmdExecHandler(
                     + "blank, title, testscreen, calibrate, c:x1/y1:x2/y2:..., or off. /screen reload (anyone) reloads your own client's screens here.\n"
                     + "Extras: main:<url> (a frame page under the main panel; box:x/y/w/h is then relative to it), banner:<url> (the Stage banner strip, else the title card; a frame page gets what plays through /ai-sp/aisp-frame.js),\n"
                     + "box:x/y/w/h to place the video inside the crop, crop:sw/sh:cx/cy to render it at sw x sh and show the box-sized window at cx,cy, extend:l/t/r/b for the same worked out from the box (that much more on each side, the box showing the window at l,t),\n"
-                    + "scrollx:N scrolly:N or scroll:x/y to pan an electron: document, scale:N for browser zoom (1=100%; not a texture stretch),\n"
+                    + "scrollx:N scrolly:N or scroll:x/y to pan an electron: document, scale:N for browser zoom (1=100%; not a texture stretch), run:<url> for a script to run in an electron: page once loaded,\n"
                     + "key[:RRGGBB] to colour-key it,\n"
                     + "fps:N (15/20/25/30/50/60), rolloff:near/far, rolloff:near/far/max/min (gains to fade between, default 1/0), rolloff:x/y/z/near/far, rolloff:x/y/z/near/far/max/min or rolloff:flat, pan to also stereo-pan by bearing.",
                 ct

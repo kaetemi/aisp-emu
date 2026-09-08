@@ -556,6 +556,22 @@ public sealed class ScreenAssignments(
     /// its edges cut off. The page computes the crop, knowing the box; a crop word given as
     /// well wins.
     /// </summary>
+    /// <summary>
+    /// run:&lt;url&gt;: a script the off-screen browser fetches and runs in an electron: page once
+    /// it has loaded (a site's own button, a layout switch), as an http(s) URL or a root-relative
+    /// path of this server's (/ai-sp/run/…), taken at the screen page's origin like the embed pages.
+    /// </summary>
+    public static bool IsRunWord(string? word) =>
+        word is not null
+        && word.StartsWith("run:", StringComparison.OrdinalIgnoreCase)
+        && word.Length > 4
+        && !word.Contains(';')
+        && (
+            word[4..].StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || word[4..].StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            || (word[4] == '/' && (word.Length == 5 || word[5] != '/'))
+        );
+
     public static bool IsExtendWord(string? word) =>
         word is not null
         && word.StartsWith("extend:", StringComparison.OrdinalIgnoreCase)
@@ -814,6 +830,7 @@ public sealed class ScreenAssignments(
                     || IsPanWord(word)
                     || IsScrollWord(word)
                     || IsScaleWord(word)
+                    || IsRunWord(word)
                 )
         )
             return false;

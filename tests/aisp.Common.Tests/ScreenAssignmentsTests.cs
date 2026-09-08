@@ -468,6 +468,13 @@ public sealed class ScreenAssignmentsTests
             "streamlink:https://live.nicovideo.jp/watch/lv351315472",
             ScreenAssignments.ToHookSource("lv351315472")
         );
+        Assert.True(ScreenAssignments.IsRunWord("run:/ai-sp/run/nicolive-player.js"));
+        Assert.True(ScreenAssignments.IsRunWord("run:https://x/a.js"));
+        Assert.False(ScreenAssignments.IsRunWord("run:"));
+        Assert.False(ScreenAssignments.IsRunWord("run://x"));
+        Assert.False(ScreenAssignments.IsRunWord("run:ftp://x"));
+        Assert.True(ScreenAssignments.IsValidSource("electron:https://x/ run:/ai-sp/run/a.js"));
+        Assert.False(ScreenAssignments.IsValidSource("electron:https://x/ run:a.js"));
         Assert.Equal(
             "yt-dlp:https://www.nicovideo.jp/watch/lv351315472",
             ScreenAssignments.ToHookSource("lv351315472:vod")
