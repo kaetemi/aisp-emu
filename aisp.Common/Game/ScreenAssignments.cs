@@ -237,6 +237,19 @@ public sealed class ScreenAssignments(
                     timeline.Paused ? "&paused=" + timeline.PausedAt!.Value.ToUnixTimeSeconds() : ""
                 );
         }
+        // The Nico watch page gets the same numbers as a fragment, which the site ignores and
+        // the run: script reads (a changed fragment is a changed URL: a restart at the position).
+        else if (words[0].StartsWith("electron:" + NicoVideoWatchPage, StringComparison.Ordinal))
+        {
+            words[0] +=
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"#start={timeline.StartedAt.ToUnixTimeSeconds()}&offset={timeline.Offset:0.###}"
+                )
+                + (
+                    timeline.Paused ? "&paused=" + timeline.PausedAt!.Value.ToUnixTimeSeconds() : ""
+                );
+        }
         words.Add(TimelineWords(timeline));
         return string.Join(' ', words);
     }
@@ -351,7 +364,9 @@ public sealed class ScreenAssignments(
         if (main.StartsWith("twitch:", StringComparison.OrdinalIgnoreCase))
             main = "tw:" + main[7..];
         else if (IsNicoLiveId(main) || IsNicoVideoId(main) || IsNicoLiveVodId(main))
-            main = "nico:" + main;
+            main = "nn:" + main;
+        else if (main.StartsWith("nico:", StringComparison.OrdinalIgnoreCase))
+            main = "nn:" + main[5..];
         else if (string.Equals(main, "pattern", StringComparison.OrdinalIgnoreCase))
             main = PatternLive;
         else if (
@@ -641,18 +656,57 @@ public sealed class ScreenAssignments(
     public static bool IsTwitchStreamlinkSource(string? source) =>
         source is not null && HasPrefix(MainOf(source), "twl:", IsTwitchChannel);
 
-    /// <summary>nico:lv… (a bare lv… id): a Nico Live programme through streamlink.</summary>
+    /// <summary>nn:lv… (a bare lv… id, or nico:lv…): a Nico Live programme, as the watch page in the
+    /// off-screen browser or through streamlink as the server is configured (<see cref="ScreenSourceDefaults"/>).</summary>
     public static bool IsNicoLiveSource(string? source) =>
-        source is not null && HasPrefix(MainOf(source), "nico:", IsNicoLiveId);
+        source is not null && HasPrefix(MainOf(source), "nn:", IsNicoLiveId);
 
-    /// <summary>nico:lv…:vod (see <see cref="IsNicoLiveVodId"/>): the archive through yt-dlp,
-    /// with a shared timeline, instead of live through streamlink.</summary>
+    /// <summary>nn:lv…:vod (see <see cref="IsNicoLiveVodId"/>): the archive through yt-dlp,
+    /// with a shared timeline, instead of live.</summary>
     public static bool IsNicoLiveVodSource(string? source) =>
-        source is not null && HasPrefix(MainOf(source), "nico:", IsNicoLiveVodId);
+        source is not null && HasPrefix(MainOf(source), "nn:", IsNicoLiveVodId);
 
-    /// <summary>nico:sm… (a bare sm… id): a Nico video through yt-dlp, with a shared timeline.</summary>
+    /// <summary>nn:sm… (a bare sm… id, or nico:sm…): a Nico video with a shared timeline, as the
+    /// embed or through yt-dlp as the server is configured (<see cref="ScreenSourceDefaults"/>).</summary>
     public static bool IsNicoVideoSource(string? source) =>
-        source is not null && HasPrefix(MainOf(source), "nico:", IsNicoVideoId);
+        source is not null && HasPrefix(MainOf(source), "nn:", IsNicoVideoId);
+
+    /// <summary>nnd:sm… or nnd:lv…:vod: a Nico video, or an archived programme, through yt-dlp.</summary>
+    public static bool IsNicoDlpSource(string? source) =>
+        source is not null
+        && HasPrefix(MainOf(source), "nnd:", rest => IsNicoVideoId(rest) || IsNicoLiveVodId(rest));
+
+    /// <summary>nnl:lv…: a Nico Live programme through streamlink.</summary>
+    public static bool IsNicoStreamlinkSource(string? source) =>
+        source is not null && HasPrefix(MainOf(source), "nnl:", IsNicoLiveId);
+
+    /// <summary>
+    /// nne:sm…: a Nico video as its own watch page in the off-screen browser, looping. Nico's
+    /// player embed failed on some machines where the watch page plays, so the page is loaded
+    /// whole and a run: script (<see cref="NicoVideoPlayerScript"/>) pins the page's own video
+    /// element over the viewport (the video box) and drives it: the shared timeline rides in the
+    /// page URL's fragment, which the site ignores.
+    /// </summary>
+    public static bool IsNicoEmbedVideoSource(string? source) =>
+        source is not null && HasPrefix(MainOf(source), "nne:", IsNicoVideoId);
+
+    /// <summary>
+    /// nne:lv…: a Nico Live programme as its own watch page in the off-screen browser. Nico has no
+    /// embeddable live player any more and the page refuses framing, so the page is loaded whole
+    /// and a run: script (<see cref="NicoLivePlayerScript"/>) presses its player's own
+    /// fullscreen button, which scales the player to the viewport, the video box.
+    /// </summary>
+    public static bool IsNicoEmbedLiveSource(string? source) =>
+        source is not null && HasPrefix(MainOf(source), "nne:", IsNicoLiveId);
+
+    /// <summary>The root-relative script nne:sm… runs in the watch page (a run: word).</summary>
+    public const string NicoVideoPlayerScript = "/ai-sp/run/nicovideo-player.js";
+
+    /// <summary>The page nne:sm… loads, before the id and the timeline fragment.</summary>
+    public const string NicoVideoWatchPage = "https://www.nicovideo.jp/watch/";
+
+    /// <summary>The root-relative script nne:lv… runs in the watch page (a run: word).</summary>
+    public const string NicoLivePlayerScript = "/ai-sp/run/nicolive-player.js";
 
     /// <summary>yt:&lt;id&gt;: a YouTube video with a shared timeline, as the embed or through
     /// yt-dlp as the server is configured (<see cref="ScreenSourceDefaults"/>).</summary>
@@ -703,8 +757,12 @@ public sealed class ScreenAssignments(
         return IsElectronSource(source)
             || IsTwitchEmbedSource(source)
             || IsYouTubeEmbedSource(source)
+            || IsNicoEmbedVideoSource(source)
+            || IsNicoEmbedLiveSource(source)
             || (d.TwitchEmbed && IsTwitchSource(source))
-            || (d.YouTubeEmbed && IsYouTubeVideoSource(source));
+            || (d.YouTubeEmbed && IsYouTubeVideoSource(source))
+            || (d.NicoVideoEmbed && IsNicoVideoSource(source))
+            || (d.NicoLiveEmbed && IsNicoLiveSource(source));
     }
 
     /// <summary>
@@ -748,14 +806,16 @@ public sealed class ScreenAssignments(
         && (IsStreamSource(source) || IsPageUrl(source))
         && !IsChannelSource(source);
 
-    /// <summary>A video with a shared timeline (not a live stream): yt:, yte:, ytd:, sm… and
-    /// pattern:vod. The hook seeks to the shared position and /screen pause, resume and seek move it.</summary>
+    /// <summary>A video with a shared timeline (not a live stream): yt:, yte:, ytd:, sm… (nn:, nne:,
+    /// nnd:), lv…:vod and pattern:vod. The hook seeks to the shared position and /screen pause, resume and seek move it.</summary>
     public static bool IsVideoSource(string? source) =>
         IsYouTubeVideoSource(source)
         || IsYouTubeEmbedSource(source)
         || IsYouTubeDlpSource(source)
         || IsNicoVideoSource(source)
         || IsNicoLiveVodSource(source)
+        || IsNicoDlpSource(source)
+        || IsNicoEmbedVideoSource(source)
         || (
             source is not null
             && string.Equals(MainOf(source), PatternVod, StringComparison.OrdinalIgnoreCase)
@@ -770,6 +830,8 @@ public sealed class ScreenAssignments(
         || IsTwitchEmbedSource(source)
         || IsTwitchStreamlinkSource(source)
         || IsNicoLiveSource(source)
+        || IsNicoStreamlinkSource(source)
+        || IsNicoEmbedLiveSource(source)
         || IsYouTubeLiveSource(source)
         || IsVideoSource(source)
         || IsPatternSource(source)
@@ -862,6 +924,13 @@ public sealed class ScreenAssignments(
             main = (d.TwitchEmbed ? "twe:" : "twl:") + main[3..];
         else if (IsYouTubeVideoSource(main))
             main = (d.YouTubeEmbed ? "yte:" : "ytd:") + main[3..];
+        else if (IsNicoVideoSource(main))
+            main = (d.NicoVideoEmbed ? "nne:" : "nnd:") + main[3..];
+        else if (IsNicoLiveVodSource(main))
+            main = "nnd:" + main[3..];
+        else if (IsNicoLiveSource(main))
+            main = (d.NicoLiveEmbed ? "nne:" : "nnl:") + main[3..];
+        var extras = words.Skip(1).ToList();
         if (IsTwitchStreamlinkSource(main))
             main = "streamlink:https://twitch.tv/" + main[4..];
         else if (IsTwitchEmbedSource(main))
@@ -870,19 +939,33 @@ public sealed class ScreenAssignments(
                 + main[4..]
                 + "&parent="
                 + TwitchEmbedParent;
-        else if (IsNicoLiveVodSource(main))
-            main = "yt-dlp:https://www.nicovideo.jp/watch/" + main[5..^4];
-        else if (IsNicoLiveSource(main))
-            main = "streamlink:https://live.nicovideo.jp/watch/" + main[5..];
-        else if (IsNicoVideoSource(main))
-            main = "yt-dlp:https://www.nicovideo.jp/watch/" + main[5..];
+        else if (IsNicoDlpSource(main))
+            main =
+                "yt-dlp:https://www.nicovideo.jp/watch/"
+                + (IsNicoLiveVodId(main[4..]) ? main[4..^4] : main[4..]);
+        else if (IsNicoStreamlinkSource(main))
+            main = "streamlink:https://live.nicovideo.jp/watch/" + main[4..];
+        else if (IsNicoEmbedVideoSource(main))
+        {
+            main = "electron:" + NicoVideoWatchPage + main[4..];
+            if (!extras.Any(IsRunWord))
+                extras.Insert(0, "run:" + NicoVideoPlayerScript);
+        }
+        else if (IsNicoEmbedLiveSource(main))
+        {
+            main = "electron:https://live.nicovideo.jp/watch/" + main[4..];
+            // The page's own player, scaled to the box by the script; a run: word of the
+            // caller's own wins.
+            if (!extras.Any(IsRunWord))
+                extras.Insert(0, "run:" + NicoLivePlayerScript);
+        }
         else if (IsYouTubeDlpSource(main))
             main = "yt-dlp:https://www.youtube.com/watch?v=" + main[4..];
         else if (IsYouTubeEmbedSource(main))
             main = "electron:" + YouTubeEmbedPage + "?v=" + main[4..];
         else if (IsYouTubeLiveSource(main))
             main = "streamlink:https://www.youtube.com/watch?v=" + main[4..];
-        return string.Join(' ', new[] { main }.Concat(words.Skip(1)));
+        return string.Join(' ', new[] { main }.Concat(extras));
     }
 
     /// <summary>
@@ -1014,7 +1097,12 @@ public sealed class ScreenAssignments(
 /// own player than to yt-dlp. From the server's [Server:Screens] settings, whose values are the
 /// hook sources each becomes: electron, streamlink, yt-dlp.
 /// </summary>
-public sealed record ScreenSourceDefaults(bool TwitchEmbed = true, bool YouTubeEmbed = true)
+public sealed record ScreenSourceDefaults(
+    bool TwitchEmbed = true,
+    bool YouTubeEmbed = true,
+    bool NicoVideoEmbed = true,
+    bool NicoLiveEmbed = true
+)
 {
     public static readonly ScreenSourceDefaults Default = new();
 
@@ -1028,6 +1116,16 @@ public sealed record ScreenSourceDefaults(bool TwitchEmbed = true, bool YouTubeE
             YouTubeEmbed: !string.Equals(
                 options.YouTube,
                 "yt-dlp",
+                StringComparison.OrdinalIgnoreCase
+            ),
+            NicoVideoEmbed: !string.Equals(
+                options.NicoVideo,
+                "yt-dlp",
+                StringComparison.OrdinalIgnoreCase
+            ),
+            NicoLiveEmbed: !string.Equals(
+                options.NicoLive,
+                "streamlink",
                 StringComparison.OrdinalIgnoreCase
             )
         );

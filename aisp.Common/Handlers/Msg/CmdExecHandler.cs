@@ -1034,8 +1034,8 @@ public class CmdExecHandler(
         {
             await SendSystemNoticeAsync(
                 session,
-                "/screen <source> [extras]. Sources: tw:<channel> (Twitch, the embed or streamlink as the server is set), twe:<channel> (Twitch's embed), twl:<channel> (Twitch through streamlink), ytl:<id> (YouTube live through streamlink), lv<id> (Nico Live),\n"
-                    + "yt:<id> (YouTube, the embed or yt-dlp as the server is set), yte:<id> (YouTube's own embed, looping), ytd:<id> (YouTube through yt-dlp), sm<id> (Nico video), lv<id>:vod (an archived Nico Live, once Nico has one) or pattern:vod (videos, played in step by everyone; then /screen pause, resume, seek <seconds>),\n"
+                "/screen <source> [extras]. Sources: tw:<channel> (Twitch, the embed or streamlink as the server is set), twe:<channel> (Twitch's embed), twl:<channel> (Twitch through streamlink), ytl:<id> (YouTube live through streamlink), lv<id> (Nico Live, its watch page in the browser or streamlink as the server is set; nne:lv<id> / nnl:lv<id> to pick),\n"
+                    + "yt:<id> (YouTube, the embed or yt-dlp as the server is set), yte:<id> (YouTube's own embed, looping), ytd:<id> (YouTube through yt-dlp), sm<id> (Nico video, its watch page in the browser or yt-dlp as the server is set; nne:sm<id> / nnd:sm<id> to pick), lv<id>:vod (an archived Nico Live, once Nico has one, through yt-dlp) or pattern:vod (videos, played in step by everyone; then /screen pause, resume, seek <seconds>),\n"
                     + "pattern:live (the hook's own test picture and tone), streamlink:<url>, stream:<url>, electron:<http(s) url> (off-screen browser), a web page URL,\n"
                     + "channel:<n> (follows whatever /channel <n> <source> is showing), channel:auto (follows this screen's own tvid=, if it has one; the title card without one),\n"
                     + "blank, title, testscreen, calibrate, c:x1/y1:x2/y2:..., or off. /screen reload (anyone) reloads your own client's screens here.\n"

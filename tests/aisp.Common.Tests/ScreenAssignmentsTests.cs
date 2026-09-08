@@ -49,18 +49,39 @@ public sealed class ScreenAssignmentsTests
             $"electron:/ai-sp/yt-embed?v=dQw4w9WgXcQ&start={t0}&offset=0 start:{t0} offset:0",
             assignments.Resolve("room-tv", "yte:dQw4w9WgXcQ", null)
         );
-        // Nico: a bare lv… id is a live programme through streamlink, sm… a video through yt-dlp.
+        // Nico: a bare lv… id is a live programme, sm… a video, both as their watch pages in the
+        // off-screen browser by default, each with a run: script of this server's: the live one
+        // presses the player's own fullscreen button (Nico has no live embed and the page refuses
+        // framing), the video one pins the page's video element over the box and drives it, with
+        // the shared timeline in the page URL's fragment.
         Assert.Equal(
-            "streamlink:https://live.nicovideo.jp/watch/lv351315472",
+            "electron:https://live.nicovideo.jp/watch/lv351315472 run:/ai-sp/run/nicolive-player.js",
             assignments.Resolve("room-tv", "lv351315472", 10990100)
         );
         Assert.Equal(
-            "streamlink:https://live.nicovideo.jp/watch/lv1",
+            "electron:https://live.nicovideo.jp/watch/lv1 run:/ai-sp/run/nicolive-player.js",
             assignments.Resolve("room-tv", "nico:lv1", null)
         );
         Assert.Equal(
-            $"yt-dlp:https://www.nicovideo.jp/watch/sm11273499 start:{t0} offset:0",
+            $"electron:https://www.nicovideo.jp/watch/sm11273499#start={t0}&offset=0 run:/ai-sp/run/nicovideo-player.js start:{t0} offset:0",
             assignments.Resolve("room-tv", "sm11273499", 10990100)
+        );
+        // The explicit forms pick the path regardless of the server's default.
+        Assert.Equal(
+            "streamlink:https://live.nicovideo.jp/watch/lv351315472",
+            assignments.Resolve("room-tv", "nnl:lv351315472", null)
+        );
+        Assert.Equal(
+            $"yt-dlp:https://www.nicovideo.jp/watch/sm11273499 start:{t0} offset:0",
+            assignments.Resolve("room-tv", "nnd:sm11273499", null)
+        );
+        Assert.Equal(
+            $"yt-dlp:https://www.nicovideo.jp/watch/lv1 start:{t0} offset:0",
+            assignments.Resolve("room-tv", "nnd:lv1:vod", null)
+        );
+        Assert.Equal(
+            $"electron:https://www.nicovideo.jp/watch/sm9#start={t0}&offset=0 run:/ai-sp/run/nicovideo-player.js start:{t0} offset:0",
+            assignments.Resolve("room-tv", "nne:sm9", null)
         );
         // The hook's test pattern, live or as a video on the shared timeline; bare pattern is live.
         Assert.Equal("pattern:live", assignments.Resolve("room-tv", "pattern:live", null));
@@ -130,6 +151,31 @@ public sealed class ScreenAssignmentsTests
             $"yt-dlp:https://www.youtube.com/watch?v=abc123 start:{t0} offset:0",
             decoded.Resolve("room-tv", "yt:abc123", null)
         );
+        // Nico the same way: nn: (a bare id, or nico:) follows the server, nne:/nnd:/nnl: do not.
+        Assert.Equal("nn:sm9", ScreenAssignments.Normalize("nico:sm9"));
+        Assert.Equal("nn:lv1", ScreenAssignments.Normalize("lv1"));
+        Assert.True(ScreenAssignments.IsBrowserSource("sm9"));
+        Assert.True(ScreenAssignments.IsBrowserSource("lv1"));
+        Assert.True(ScreenAssignments.IsBrowserSource("nne:sm9"));
+        Assert.False(ScreenAssignments.IsBrowserSource("nnd:sm9"));
+        Assert.False(ScreenAssignments.IsBrowserSource("nnl:lv1"));
+        var nicoDecoded = new ScreenAssignments(
+            time,
+            new ScreenSourceDefaults(NicoVideoEmbed: false, NicoLiveEmbed: false)
+        );
+        Assert.Equal(
+            $"yt-dlp:https://www.nicovideo.jp/watch/sm9 start:{t0} offset:0",
+            nicoDecoded.Resolve("room-tv", "sm9", null)
+        );
+        Assert.Equal(
+            "streamlink:https://live.nicovideo.jp/watch/lv1",
+            nicoDecoded.Resolve("room-tv", "lv1", null)
+        );
+        Assert.True(ScreenAssignments.IsVideoSource("nne:sm9"));
+        Assert.True(ScreenAssignments.IsVideoSource("nnd:lv1:vod"));
+        Assert.False(ScreenAssignments.IsVideoSource("nne:lv1"));
+        Assert.True(ScreenAssignments.IsTypedSource("nne:lv1"));
+        Assert.True(ScreenAssignments.IsTypedSource("nnl:lv1"));
         var decodedDefaults = new ScreenSourceDefaults(TwitchEmbed: false, YouTubeEmbed: false);
         Assert.False(ScreenAssignments.IsBrowserSource("tw:someone", decodedDefaults));
         Assert.False(ScreenAssignments.IsBrowserSource("yt:abc123", decodedDefaults));
@@ -337,7 +383,7 @@ public sealed class ScreenAssignmentsTests
         Assert.Equal("twl:someone https://x/banner", assignments.Get(10990100));
         // The typed ids keep their friendly form in the assignment too.
         assignments.Set(10990100, "sm9 pan");
-        Assert.Equal("nico:sm9 pan", assignments.Get(10990100));
+        Assert.Equal("nn:sm9 pan", assignments.Get(10990100));
         assignments.Set(10990100, "pattern");
         Assert.Equal("pattern:live", assignments.Get(10990100));
 
@@ -462,11 +508,20 @@ public sealed class ScreenAssignmentsTests
         );
         Assert.Equal(
             "yt-dlp:https://www.nicovideo.jp/watch/sm9",
-            ScreenAssignments.ToHookSource("sm9")
+            ScreenAssignments.ToHookSource("nnd:sm9")
         );
         Assert.Equal(
             "streamlink:https://live.nicovideo.jp/watch/lv351315472",
-            ScreenAssignments.ToHookSource("lv351315472")
+            ScreenAssignments.ToHookSource("nnl:lv351315472")
+        );
+        Assert.Equal(
+            "electron:https://www.nicovideo.jp/watch/sm9 run:/ai-sp/run/nicovideo-player.js",
+            ScreenAssignments.ToHookSource("sm9")
+        );
+        // A caller's own run: word stands in for the live page's default one.
+        Assert.Equal(
+            "electron:https://live.nicovideo.jp/watch/lv351315472 run:https://x/mine.js key",
+            ScreenAssignments.ToHookSource("lv351315472 run:https://x/mine.js key")
         );
         Assert.True(ScreenAssignments.IsRunWord("run:/ai-sp/run/nicolive-player.js"));
         Assert.True(ScreenAssignments.IsRunWord("run:https://x/a.js"));
