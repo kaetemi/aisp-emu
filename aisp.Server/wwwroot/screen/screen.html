@@ -37,6 +37,9 @@ body.tv #comments{top:36px}
 .c{position:absolute;white-space:nowrap;font:bold 28px/32px "MS Gothic","ＭＳ ゴシック",monospace;height:32px}
 .c span{position:absolute;left:0;top:0;color:#000}
 .c span.f{color:#fff}
+.c.k{font-size:20px;line-height:24px;height:24px}
+.d{position:absolute;left:8px;top:8px;right:8px;bottom:8px;background:#101018;color:#fff;font:13px/17px "MS Gothic","ＭＳ ゴシック",monospace;padding:8px;overflow:hidden;white-space:pre-wrap;word-break:break-all}
+.d b{color:#ffd166;font-weight:normal}
 #outside{position:absolute;left:9px;top:600px;font-size:12px;color:#888}
 .ret{position:absolute;left:520px;font-size:12px;color:#00f}
 .corner{position:absolute;width:12px;height:12px;background:#f80}
@@ -126,7 +129,12 @@ body.tv #comments{top:36px}
   // otherwise off). The client never sets it on its own: its panel button is an empty case in
   // the binary, and only the server's set-comment-visible notify (or the launcher hook filling
   // that case in) reaches ext_setCommentVisible. It starts over on every re-navigation.
-  state.comment=/;comment=1(?:;|$)/.test(document.title||'');
+  // The overlay the comment button cycles through, 0 off; comment=1 starts it on page 1 (see
+  // overlayNames). Every press reaches this page as ext_setCommentVisible(true) and is the
+  // next page, round to off after the last; false (the server's notify) is off. The launcher hook asks
+  // ext_isCommentVisible after each press to set the button glyph, so this page decides.
+  state.overlay=/;comment=1(?:;|$)/.test(document.title||'')?1:0;
+  var overlayNames=['off','id','title','clock','info'];
   var frame=$('frame'), bannerFrame=$('banner');
   function isPage(v){ return /^https?:\/\//i.test(v); }
   // "<main> [main:<url>] [banner:<url>] [<url>] [box:x/y/w/h] ...": the main source goes to the
@@ -167,12 +175,14 @@ body.tv #comments{top:36px}
   }
   // The source's own key wins if it has one; otherwise the comment overlay forces the bare
   // DirectDraw key on so its text (drawn outside the key colour) survives the hook's video fill.
-  // A room TV is keyed whether or not comments are shown: the hook composites the page over the
-  // video by key colour, and switching it between keyed and plain on a toggle races the page's
-  // repaint, which shows one frame of the page's black base and indicator before the video
-  // returns. Keying a TV-sized box every frame costs nothing noticeable, so the toggle only
-  // hides the comment layer.
-  function effectiveKey(v){ return keyOf(v) || (roomTv ? '100010' : ''); }
+  // Two keys: fillKey is what this page always paints under the video on a room TV, so any
+  // frame of it the hook has (also the one it kept from before a toggle) carries the key
+  // colour; publishedKey is what the title tells the hook, and that goes on only while the
+  // comment overlay is up. Off, the page is not drawn at all (clear=1, the same colour) and the
+  // video is plain; on, the hook composites by key over a frame that already has the colour, so
+  // the switch never shows the page's black base.
+  function fillKey(v){ return keyOf(v) || (roomTv ? '100010' : ''); }
+  function publishedKey(v){ return keyOf(v) || (roomTv && state.overlay ? '100010' : ''); }
   // crop:sw/sh:cx/cy: the hook renders the picture at sw x sh and paints the box-sized window
   // starting at cx,cy of it (zoom in, or cut a region out). For electron: sw/sh is the browser's
   // layout viewport. extend:l/t/r/b is the same worked out from the box b (that much more on
@@ -217,10 +227,14 @@ body.tv #comments{top:36px}
     for(var i=1;i<w.length;i++){ var m=/^(start|offset|paused):([0-9.]+)$/i.exec(w[i]); if(m) t[m[1].toLowerCase()]=+m[2]; }
     return t;
   }
+  // clear=1: nothing of this page shows and the hook paints the stream over its clear colour
+  // (the key colour) alone, so its page paint stops too. Set by applySource when the video box
+  // is the whole crop with nothing of the page over it: a plain TV, with comments off.
+  var clearable=false;
   function publish(){
-    var m=mainOf(src), b=geometry(src).crop, browser=/^electron:/i.test(m), cr=cropOf(src,b), sc=browser?scrollOf(src):null, sca=browser?scaleOf(src):0, k=effectiveKey(src), f=fpsOf(src), ro=rolloffOf(src), pn=panOf(src), tl=timelineOf(src);
+    var m=mainOf(src), b=geometry(src).crop, browser=/^electron:/i.test(m), cr=cropOf(src,b), sc=browser?scrollOf(src):null, sca=browser?scaleOf(src):0, k=publishedKey(src), f=fpsOf(src), ro=rolloffOf(src), pn=panOf(src), tl=timelineOf(src);
     var stream=m&&!isPage(m)&&m!=='blank'&&m!=='title';
-    document.title='aisp:vol='+state.volume+';mute='+(state.mute?1:0)+';box='+b.join(',')+(cr?';crop='+cr:'')+(sc?';scrollx='+sc[0]+';scrolly='+sc[1]:'')+(sca?';scale='+sca:'')+(k?';key='+k:'')+(f?';fps='+f:'')+(ro?';rolloff='+ro:'')+(pn?';pan=1':'')
+    document.title='aisp:vol='+state.volume+';mute='+(state.mute?1:0)+';box='+b.join(',')+(cr?';crop='+cr:'')+(sc?';scrollx='+sc[0]+';scrolly='+sc[1]:'')+(sca?';scale='+sca:'')+(k?';key='+k:'')+(stream&&clearable?';clear=1':'')+(f?';fps='+f:'')+(ro?';rolloff='+ro:'')+(pn?';pan=1':'')
       +(tl.start?';start='+tl.start+';offset='+tl.offset+(tl.paused?';paused='+tl.paused:''):'')+(state.paused?';hold=1':'')+(stream?';src='+m:'');
     // The client forwards volume, and flushes a pending comment-visibility toggle, only while
     // the state is playing or paused; it reads the word from this element's innerHTML.
@@ -321,15 +335,18 @@ body.tv #comments{top:36px}
   }
   function hide(f){ f.style.display='none'; if(f.src) f.src='about:blank'; }
   function applySource(){
-    var m=mainOf(src), mp=mainPageOf(src), bn=bannerOf(src), raw=rawPageOf(src), g=geometry(src), vb=g.crop, k=effectiveKey(src);
+    var m=mainOf(src), mp=mainPageOf(src), bn=bannerOf(src), raw=rawPageOf(src), g=geometry(src), vb=g.crop, k=fillKey(src);
     var ox=isLive?0:9, oy=isLive?0:15, cw=isLive?950:486, ch=isLive?520:343; // the crop inside the page
     var rawFrame=raw&&!isPage(m)&&(hasBox(src)||!!k), rawBanner=raw&&!rawFrame;
     // The built-in gold frame and key fill are only for a box without a frame page: a frame
     // page paints around (and, keyed, over) the video itself. The comment overlay is the same
     // box again, on top, while comments are on.
     var videoBox=m&&!isPage(m)&&m!=='blank'&&!mp&&!rawFrame?vb:null;
+    var comments=!!videoBox&&roomTv&&state.overlay>0;
     showBoxFrame(videoBox, k);
-    updateCommentLayer(videoBox&&roomTv&&state.comment?vb:null);
+    updateCommentLayer(comments?vb:null);
+    // The whole crop is video and nothing of the page (frame, banner, comments) is over it.
+    clearable=!!videoBox&&!comments&&!bn&&!rawBanner&&vb[0]===0&&vb[1]===0&&vb[2]===cw&&vb[3]===ch;
     showGrid(m==='calibrate');
     showRects(/^c:/i.test(m)?m.substring(2):null);
     var diagnostic = !m || m==='calibrate' || /^c:/i.test(m);
@@ -360,10 +377,13 @@ body.tv #comments{top:36px}
     var mid=(q.movieid||mainOf(src)||'aisp-emu').replace(/\s*\bn:\d+\b/gi,'').trim();
     return mid||'aisp-emu';
   }
+  // What the flying text says: page 1 the movie id, page 2 the title the hook pushed (the id
+  // until there is one).
+  function overlayText(){ return state.overlay===2&&media&&media.title?media.title:commentText(); }
   // One flying comment: the text drawn 8 times in black, offset a pixel in every direction,
   // with one more in colour on top, so it stays legible over anything without anti-aliasing.
-  function makeComment(text,color){
-    var d=document.createElement('div'); d.className='c';
+  function makeComment(text,color,cls){
+    var d=document.createElement('div'); d.className='c'+(cls?' '+cls:'');
     var offs=[[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1],[0,0]];
     for(var i=0;i<offs.length;i++){
       var s=document.createElement('span');
@@ -383,7 +403,7 @@ body.tv #comments{top:36px}
   function spawnComment(){
     var cl=$('commentLayer'), bw=cl.clientWidth, bh=cl.clientHeight;
     if(bw<=0||bh<=0) return;
-    var d=makeComment(commentText(),'#fff'), w=d.offsetWidth||220;
+    var d=makeComment(overlayText(),'#fff'), w=d.offsetWidth||220;
     var speed=(bw+w)/(commentCrossMs/commentTickMs);
     d.style.top='8px'; d.style.left=bw+'px';
     comment={el:d,x:bw,speed:speed,w:w};
@@ -394,33 +414,65 @@ body.tv #comments{top:36px}
     c.x-=c.speed; c.el.style.left=Math.round(c.x)+'px';
     if(c.x+c.w<0){ cl.removeChild(c.el); comment=null; }
   }
+  // Page 3: the play time in the corner, the way the old broadcast clocks sat; with the total
+  // when the hook knows one. Page 4: everything the hook pushed, on a panel.
+  var clockEl=null, infoEl=null;
+  function clockText(){
+    if(!media||!media.active) return '--:--';
+    return clock(media.position)+(media.duration?' / '+clock(media.duration):'');
+  }
+  function infoText(){
+    if(!media) return 'no state from the hook yet';
+    var m=media, rows=[['title',m.title||'(none)'],['source',m.source],['kind',m.kind],['url',m.url||'(none)'],
+      ['time',clock(m.position)+(m.duration?' / '+clock(m.duration):'')+'  elapsed '+clock(m.elapsed)],
+      ['state',(m.active?(m.playing?'playing':'not playing'):'no session')+(m.paused?', paused':'')],
+      ['status',m.status||'(none)'],['fps',m.fps],['box',(m.box||[]).join(',')+(m.crop&&m.crop.length?'  crop '+m.crop.join(','):'')],
+      ['overlay',overlayNames[state.overlay]+' ('+state.overlay+')']];
+    var out='';
+    for(var i=0;i<rows.length;i++) out+='<b>'+rows[i][0]+'</b>  '+esc(rows[i][1])+'\n';
+    return out;
+  }
+  // Redraws the pages that show live values; the scroller picks its text up at its next spawn.
+  function renderOverlay(){
+    if(clockEl){
+      var t=clockText(), spans=clockEl.getElementsByTagName('span');
+      for(var i=0;i<spans.length;i++) if(spans[i].firstChild.nodeValue!==t) spans[i].firstChild.nodeValue=t;
+      // The div has no width of its own (its spans are absolute): measure one span.
+      clockEl.style.left=(clockEl.parentNode.clientWidth-(spans.length?spans[0].offsetWidth:0)-10)+'px';
+    }
+    if(infoEl) infoEl.innerHTML=infoText();
+  }
   // Sized and positioned to the video box (crop-space, like the key fill it sits over) while
-  // comments are on; torn down and hidden otherwise.
+  // an overlay page is on; torn down and hidden otherwise.
   function updateCommentLayer(vb){
     var cl=$('commentLayer');
-    if(!vb){
-      if(commentTimer){ clearInterval(commentTimer); commentTimer=null; }
-      if(comment){ cl.removeChild(comment.el); comment=null; }
-      cl.style.display='none';
-      return;
-    }
+    if(commentTimer){ clearInterval(commentTimer); commentTimer=null; }
+    if(comment){ cl.removeChild(comment.el); comment=null; }
+    if(clockEl){ cl.removeChild(clockEl); clockEl=null; }
+    if(infoEl){ cl.removeChild(infoEl); infoEl=null; }
+    if(!vb){ cl.style.display='none'; return; }
     cl.style.left=vb[0]+'px'; cl.style.top=vb[1]+'px'; cl.style.width=vb[2]+'px'; cl.style.height=vb[3]+'px';
     cl.style.display='block';
     // showBoxFrame just above appended a fresh key fill after this div in the DOM, which would
     // otherwise paint over it (later siblings stack on top with no z-index set anywhere here);
-    // move it back to the end so the comments stay above the key colour, not hidden under it.
+    // move it back to the end so the overlay stays above the key colour, not hidden under it.
     box.appendChild(cl);
-    if(!commentTimer) commentTimer=setInterval(commentStep,commentTickMs);
+    if(state.overlay===1||state.overlay===2) commentTimer=setInterval(commentStep,commentTickMs);
+    else if(state.overlay===3){ clockEl=makeComment(clockText(),'#fff','k'); clockEl.style.top='8px'; renderOverlay(); }
+    else if(state.overlay===4){ infoEl=document.createElement('div'); infoEl.className='d'; cl.appendChild(infoEl); renderOverlay(); }
   }
   function updateComments(){
     var el=$('comments'); if(!el) return;
-    el.textContent=state.comment?'💬 on':'💬 off';
-    el.style.color=state.comment?'#8f8':'#888';
+    el.textContent='💬 '+overlayNames[state.overlay];
+    el.style.color=state.overlay?'#8f8':'#888';
   }
   updateComments();
   var retTop=600;
-  // Getters hand back their value through an element the client reads by id and then removes.
+  // Getters return their value; the client calls them with no argument and wraps the value in an
+  // element of its own that it reads by id and removes. Given a name (a test, or the launcher
+  // hook reading a getter directly), an element with the value is left for the caller instead.
   function ret(name,value){
+    if(!name) return value;
     var d=document.createElement('div'); d.id=name; d.className='ret'; d.style.top=(retTop+=14)+'px';
     d.innerText=String(value); d.value=String(value); document.body.appendChild(d); return value;
   }
@@ -434,11 +486,11 @@ body.tv #comments{top:36px}
   ext.ext_setMute=function(m){ note('ext_setMute '+m); state.mute=!!m; publish(); };
   ext.ext_setPlayheadTime=function(t){ note('ext_setPlayheadTime '+t); state.playhead=Number(t)||0; };
   ext.ext_setVolume=function(n){ note('ext_setVolume '+n); state.volume=Math.max(0,Math.min(100,Math.round(Number(n)))); publish(); };
-  ext.ext_setCommentVisible=function(b){ note('ext_setCommentVisible '+b); state.comment=!!b; updateComments(); applySource(); };
+  ext.ext_setCommentVisible=function(b){ note('ext_setCommentVisible '+b); state.overlay=b?(state.overlay+1)%overlayNames.length:0; updateComments(); applySource(); };
   ext.ext_setRepeat=function(b){ note('ext_setRepeat '+b); state.repeat=!!b; };
   ext.ext_isMute=function(r){ note('ext_isMute -> '+r); return ret(r, state.mute?1:0); };
   ext.ext_getVolume=function(r){ note('ext_getVolume -> '+r); return ret(r, state.volume); };
-  ext.ext_isCommentVisible=function(r){ note('ext_isCommentVisible -> '+r); return ret(r, state.comment?1:0); };
+  ext.ext_isCommentVisible=function(r){ note('ext_isCommentVisible -> '+r); return ret(r, state.overlay?1:0); };
   ext.ext_isRepeat=function(r){ note('ext_isRepeat -> '+r); return ret(r, state.repeat?1:0); };
   ext.ext_getPlayheadTime=function(r){ note('ext_getPlayheadTime -> '+r); return ret(r, Math.floor((new Date().getTime()-t0)/1000)); };
   ext.ext_getTotalTime=function(r){ note('ext_getTotalTime -> '+r); return ret(r, state.total); };
@@ -465,6 +517,13 @@ body.tv #comments{top:36px}
     }catch(e){}
   }
   if(!noPoll) setInterval(pollSource,30000);
+  // The launcher hook keeps window.aisp up to date with what it plays for this page (the
+  // media title, duration, position, playing state; see the hook's page_state.cpp) and calls
+  // this on every change. Shown in the diagnostics line for now.
+  var media=null;
+  window.onAisp=function(m){ media=m; renderOverlay(); };
+  function esc(v){ return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  function clock(n){ n=Math.floor(n||0); return Math.floor(n/60)+':'+('0'+(n%60)).slice(-2); }
   setInterval(function(){
     var s=Math.floor((new Date().getTime()-t0)/1000);
     while(meta.firstChild) meta.removeChild(meta.firstChild);
@@ -475,6 +534,10 @@ body.tv #comments{top:36px}
     meta.appendChild(document.createTextNode('mode: '+mode+'   clock: '+s+'s   volume: '+state.volume+(state.mute?' (muted)':'')));
     meta.appendChild(document.createElement('br'));
     meta.appendChild(document.createTextNode('source: '+(src||'(none, showing this page)')));
+    if(media&&media.active){
+      meta.appendChild(document.createElement('br'));
+      meta.appendChild(document.createTextNode('media: '+(media.title||'(untitled)')+'   '+clock(media.position)+(media.duration?' / '+clock(media.duration):'')+(media.playing?'':' ('+media.status+')')));
+    }
     pulse.style.background=(s%2)?'#f80':'#0cf';
   },250);
 })();
