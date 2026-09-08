@@ -44,7 +44,7 @@ body.tv #comments{top:36px}
 .ret{position:absolute;left:520px;font-size:12px;color:#00f}
 .corner{position:absolute;width:12px;height:12px;background:#f80}
 .panel{position:absolute;outline:2px solid #f80}
-.panel .lab{position:absolute;left:4px;top:2px;font-size:11px;color:#f80}
+.panel .lab{position:absolute;right:16px;bottom:2px;font-size:11px;color:#f80}
 .card{position:absolute;background:#0d0b1a;color:#e8e6f0;text-align:center;font-family:Verdana,Arial,sans-serif;font-weight:bold;overflow:hidden}
 .card .w{position:absolute;left:0;width:100%;letter-spacing:4px}
 .card .k{position:absolute;right:10px;top:0;height:100%;display:flex;align-items:center;font:bold 16px/20px "MS Gothic","ＭＳ ゴシック",monospace;letter-spacing:0;color:#e8e6f0}
@@ -85,13 +85,19 @@ body.tv #comments{top:36px}
   document.body.className=isLive?'live':'tv';
   var box=$('flvplayer_container'), main=$('led-main');
   if(!isLive){ main.appendChild($('title')); main.appendChild($('pulse')); }
+  // The panels the client shows of this page, in crop coordinates: the Stage wall's banner strip
+  // and main LED, or a TV's whole crop. Each is outlined and labelled with its size and offset
+  // on the diagnostic page, and listed in its meta text.
+  var panels=isLive?[[7,7,543,53,'banner'],[7,65,543,382,'main']]:[[0,0,486,343,'main']];
+  function panelText(p){ return p[4]+' '+p[2]+'x'+p[3]+(p[0]||p[1]?' at '+p[0]+','+p[1]:''); }
+  var panelsText=(function(){ var t=[]; for(var i=0;i<panels.length;i++) t.push(panelText(panels[i])); return t.join('   '); })();
   function corners(rects){
     for(var r=0;r<rects.length;r++){
       var x=rects[r][0], y=rects[r][1], w=rects[r][2], h=rects[r][3], n=rects[r][4];
       if(n){
         var p=document.createElement('div'); p.className='panel';
         p.style.left=x+'px'; p.style.top=y+'px'; p.style.width=w+'px'; p.style.height=h+'px';
-        var lab=document.createElement('div'); lab.className='lab'; lab.innerHTML=n; p.appendChild(lab);
+        var lab=document.createElement('div'); lab.className='lab'; lab.textContent=panelText(rects[r]); p.appendChild(lab);
         box.appendChild(p);
       }
       var cs=[[x,y],[x+w-12,y],[x,y+h-12],[x+w-12,y+h-12]];
@@ -102,7 +108,7 @@ body.tv #comments{top:36px}
     }
   }
   // Corner markers on the boxes the panels actually show.
-  corners(isLive?[[7,7,543,53,'top'],[7,65,543,382,'main']]:[[0,0,486,343,'']]);
+  corners(panels);
   var q={}, search=(window.location.search||'').substring(1).split('&');
   for(var i=0;i<search.length;i++){ if(!search[i]) continue; var kv=search[i].split('='); try{ q[decodeURIComponent(kv[0])]=decodeURIComponent((kv[1]||'').replace(/\+/g,' ')); }catch(e){ q[kv[0]]=kv[1]; } }
   var params=[]; for(var k in q) if(q.hasOwnProperty(k)) params.push(k+'='+q[k]);
@@ -557,6 +563,8 @@ body.tv #comments{top:36px}
     meta.appendChild(document.createTextNode(kind+' ('+path+')'));
     meta.appendChild(document.createElement('br'));
     meta.appendChild(document.createTextNode(params.length?params.join(' & '):'no parameters'));
+    meta.appendChild(document.createElement('br'));
+    meta.appendChild(document.createTextNode('panels: '+panelsText));
     meta.appendChild(document.createElement('br'));
     meta.appendChild(document.createTextNode('mode: '+mode+'   clock: '+s+'s   volume: '+state.volume+(state.mute?' (muted)':'')));
     meta.appendChild(document.createElement('br'));
