@@ -516,6 +516,12 @@ public sealed class ScreenAssignmentsTests
             ScreenAssignments.IsValidSource("twl:yueri box:20/20/446/303 crop:892/606:0/0")
         );
         Assert.False(ScreenAssignments.IsValidSource("twl:yueri crop:972/686"));
+        // extend:l/t/r/b is the crop worked out from the box by the page.
+        Assert.True(ScreenAssignments.IsValidSource("electron:https://x/y extend:0/0/0/200"));
+        Assert.True(ScreenAssignments.IsExtendWord("extend:10/20/30/40"));
+        Assert.False(ScreenAssignments.IsExtendWord("extend:10/20/30"));
+        Assert.False(ScreenAssignments.IsExtendWord("extend:-1/0/0/0"));
+        Assert.False(ScreenAssignments.IsValidSource("electron:https://x/y extend:a/b/c/d"));
         Assert.False(ScreenAssignments.IsValidSource("twl:yueri crop:0/686:0/0"));
         Assert.False(ScreenAssignments.IsValidSource("twl:yueri crop:972/686:-1/0"));
         Assert.False(ScreenAssignments.IsValidSource("twl:yueri crop:972,686:0,0"));

@@ -286,7 +286,7 @@ public sealed class ScreenAssignments(
     /// Canonical form of a source: trimmed, with the typed short ids in their prefixed forms
     /// (twitch: to tw:, a bare lv… or sm… id to nico:, bare pattern to pattern:live). A
     /// source is "&lt;main&gt; [main:&lt;url&gt;] [banner:&lt;url&gt;] [&lt;url&gt;] [box:x/y/w/h]
-    /// [crop:sw/sh:cx/cy] [scrollx:N] [scrolly:N] [scroll:x/y] [scale:N] [key[:RRGGBB]] [fps:N]
+    /// [crop:sw/sh:cx/cy] [extend:l/t/r/b] [scrollx:N] [scrolly:N] [scroll:x/y] [scale:N] [key[:RRGGBB]] [fps:N]
     /// [rolloff:…] [pan]": main:&lt;url&gt; is a frame page under the main panel, with the box
     /// relative to that panel; banner:&lt;url&gt; is a page for the Stage banner strip (the
     /// title card when absent); a bare page URL is the raw form, a frame page under the whole
@@ -501,6 +501,19 @@ public sealed class ScreenAssignments(
         && size.All(part => int.TryParse(part, out var n) && n > 0)
         && halves[1].Split('/') is { Length: 2 } origin
         && origin.All(part => int.TryParse(part, out var n) && n >= 0);
+
+    /// <summary>
+    /// extend:left/top/right/bottom: the crop word worked out from the box the page shows the
+    /// source in: the picture is rendered that much larger on each side and the box shows the
+    /// window at left,top of it, so a browser page can be laid out wider than the panel and
+    /// its edges cut off. The page computes the crop, knowing the box; a crop word given as
+    /// well wins.
+    /// </summary>
+    public static bool IsExtendWord(string? word) =>
+        word is not null
+        && word.StartsWith("extend:", StringComparison.OrdinalIgnoreCase)
+        && word[7..].Split('/') is { Length: 4 } sides
+        && sides.All(part => int.TryParse(part, out var n) && n >= 0);
 
     private static string MainOf(string source) => Normalize(source).Split(' ')[0];
 
@@ -747,6 +760,7 @@ public sealed class ScreenAssignments(
                     || IsBannerWord(word)
                     || IsBoxWord(word)
                     || IsCropWord(word)
+                    || IsExtendWord(word)
                     || IsKeyWord(word)
                     || IsFpsWord(word)
                     || IsRolloffWord(word)

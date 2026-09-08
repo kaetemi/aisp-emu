@@ -175,8 +175,18 @@ body.tv #comments{top:36px}
   function effectiveKey(v){ return keyOf(v) || (roomTv ? '100010' : ''); }
   // crop:sw/sh:cx/cy: the hook renders the picture at sw x sh and paints the box-sized window
   // starting at cx,cy of it (zoom in, or cut a region out). For electron: sw/sh is the browser's
-  // layout viewport. Published as crop=sw,sh,cx,cy.
-  function cropOf(v){ var w=(v||'').split(' '); for(var i=1;i<w.length;i++){ var m=/^crop:(\d+)\/(\d+):(\d+)\/(\d+)$/i.exec(w[i]); if(m) return [+m[1],+m[2],+m[3],+m[4]].join(','); } return ''; }
+  // layout viewport. extend:l/t/r/b is the same worked out from the box b (that much more on
+  // each side, the window at l,t): a page laid out wider than the panel with its edges cut
+  // off. Published as crop=sw,sh,cx,cy; a crop word wins over extend.
+  function cropOf(v,b){
+    var w=(v||'').split(' '), ext=null;
+    for(var i=1;i<w.length;i++){
+      var m=/^crop:(\d+)\/(\d+):(\d+)\/(\d+)$/i.exec(w[i]); if(m) return [+m[1],+m[2],+m[3],+m[4]].join(',');
+      var x=/^extend:(\d+)\/(\d+)\/(\d+)\/(\d+)$/i.exec(w[i]); if(x) ext=[+x[1],+x[2],+x[3],+x[4]];
+    }
+    if(ext&&b) return [b[2]+ext[0]+ext[2], b[3]+ext[1]+ext[3], ext[0], ext[1]].join(',');
+    return '';
+  }
   // scrollx:N, scrolly:N, or scroll:x/y: document offset the off-screen browser (electron:) enforces.
   // Null when no scroll extra is present (the hook then shows scrollbars again).
   function scrollOf(v){
@@ -208,7 +218,7 @@ body.tv #comments{top:36px}
     return t;
   }
   function publish(){
-    var m=mainOf(src), b=geometry(src).crop, browser=/^electron:/i.test(m), cr=cropOf(src), sc=browser?scrollOf(src):null, sca=browser?scaleOf(src):0, k=effectiveKey(src), f=fpsOf(src), ro=rolloffOf(src), pn=panOf(src), tl=timelineOf(src);
+    var m=mainOf(src), b=geometry(src).crop, browser=/^electron:/i.test(m), cr=cropOf(src,b), sc=browser?scrollOf(src):null, sca=browser?scaleOf(src):0, k=effectiveKey(src), f=fpsOf(src), ro=rolloffOf(src), pn=panOf(src), tl=timelineOf(src);
     var stream=m&&!isPage(m)&&m!=='blank'&&m!=='title';
     document.title='aisp:vol='+state.volume+';mute='+(state.mute?1:0)+';box='+b.join(',')+(cr?';crop='+cr:'')+(sc?';scrollx='+sc[0]+';scrolly='+sc[1]:'')+(sca?';scale='+sca:'')+(k?';key='+k:'')+(f?';fps='+f:'')+(ro?';rolloff='+ro:'')+(pn?';pan=1':'')
       +(tl.start?';start='+tl.start+';offset='+tl.offset+(tl.paused?';paused='+tl.paused:''):'')+(state.paused?';hold=1':'')+(stream?';src='+m:'');
