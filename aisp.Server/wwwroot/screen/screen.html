@@ -554,7 +554,31 @@ body.tv #comments{top:36px}
   // media title, duration, position, playing state; see the hook's page_state.cpp) and calls
   // this on every change. Shown in the diagnostics line for now.
   var media=null;
-  window.onAisp=function(m){ media=m; renderOverlay(); };
+  window.onAisp=function(m){ media=m; renderOverlay(); tellFrames(); };
+  // The frame pages (main:<url> under the main panel, banner:<url> on the Stage strip) get the
+  // same state this page gets from the hook, relayed by postMessage since they may come from
+  // another origin: {type:'aisp', media:<window.aisp>, screen:{route, kind, params, src, main,
+  // banner}} on every update, when a frame (re)loads, and on request ({type:'aisp:get'} from
+  // the frame). /ai-sp/aisp-frame.js wraps this into the primary page's own interface for a
+  // frame page: window.aisp, window.onAisp, the 'aisp' document event, plus window.aispFrame.
+  function frameMessage(){
+    return { type:'aisp', media:media, screen:{ route:path, kind:kind, params:q, src:src, main:mainOf(src), banner:bannerOf(src) } };
+  }
+  function tellFrames(){
+    var msg=frameMessage();
+    var frames=[frame,bannerFrame];
+    for(var i=0;i<frames.length;i++){
+      var f=frames[i];
+      if(f.style.display==='none'||!f.src||f.src==='about:blank') continue;
+      try{ if(f.contentWindow) f.contentWindow.postMessage(msg,'*'); }catch(e){}
+    }
+  }
+  frame.onload=tellFrames; bannerFrame.onload=tellFrames;
+  window.addEventListener('message',function(e){
+    var d=e.data;
+    if(!d||d.type!=='aisp:get'||!e.source) return;
+    try{ e.source.postMessage(frameMessage(),'*'); }catch(err){}
+  });
   function esc(v){ return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
   function clock(n){ n=Math.floor(n||0); return Math.floor(n/60)+':'+('0'+(n%60)).slice(-2); }
   setInterval(function(){

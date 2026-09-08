@@ -1039,7 +1039,7 @@ public class CmdExecHandler(
                     + "pattern:live (the hook's own test picture and tone), streamlink:<url>, stream:<url>, electron:<http(s) url> (off-screen browser), a web page URL,\n"
                     + "channel:<n> (follows whatever /channel <n> <source> is showing), channel:auto (follows this screen's own tvid=, if it has one; the title card without one),\n"
                     + "blank, title, testscreen, calibrate, c:x1/y1:x2/y2:..., or off. /screen reload (anyone) reloads your own client's screens here.\n"
-                    + "Extras: main:<url> (a frame page under the main panel; box:x/y/w/h is then relative to it), banner:<url> (the Stage banner strip, else the title card),\n"
+                    + "Extras: main:<url> (a frame page under the main panel; box:x/y/w/h is then relative to it), banner:<url> (the Stage banner strip, else the title card; a frame page gets what plays through /ai-sp/aisp-frame.js),\n"
                     + "box:x/y/w/h to place the video inside the crop, crop:sw/sh:cx/cy to render it at sw x sh and show the box-sized window at cx,cy, extend:l/t/r/b for the same worked out from the box (that much more on each side, the box showing the window at l,t),\n"
                     + "scrollx:N scrolly:N or scroll:x/y to pan an electron: document, scale:N for browser zoom (1=100%; not a texture stretch),\n"
                     + "key[:RRGGBB] to colour-key it,\n"
