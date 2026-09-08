@@ -2277,14 +2277,23 @@ public class CmdExecHandlerTests
                 StringComparison.OrdinalIgnoreCase
             );
 
-            // A video (needs a shared timeline, which channels do not have) is rejected too.
+            // Another channel is rejected too (no indirection chains).
             var modMsgSession = new CapturingPlayerSession { User = mod, UserId = mod.Id };
+            await handler.HandleAsync(
+                BuildCmdExecPayload("/channel", "2", "channel:3"),
+                modMsgSession,
+                TestContext.Current.CancellationToken
+            );
+            Assert.Null(screenAssignments.GetChannelSource(2));
+
+            // A video sticks, looping on the channel's own timeline from the moment it is set.
             await handler.HandleAsync(
                 BuildCmdExecPayload("/channel", "2", "yt:dQw4w9WgXcQ"),
                 modMsgSession,
                 TestContext.Current.CancellationToken
             );
-            Assert.Null(screenAssignments.GetChannelSource(2));
+            Assert.Equal("yt:dQw4w9WgXcQ", screenAssignments.GetChannelSource(2));
+            Assert.NotNull(screenAssignments.GetChannelTimeline(2));
 
             // A moderator's livestream assignment sticks, normalised the same way /screen does.
             await handler.HandleAsync(

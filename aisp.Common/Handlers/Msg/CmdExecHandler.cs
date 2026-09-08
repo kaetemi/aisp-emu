@@ -1047,8 +1047,9 @@ public class CmdExecHandler(
     }
 
     /// <summary>
-    /// /channel &lt;n&gt; &lt;source&gt; assigns channel n's content (livestream only, since a
-    /// channel has no per-viewer pause/resume/seek) and pushes every room TV already tuned to it
+    /// /channel &lt;n&gt; &lt;source&gt; assigns channel n's content (a livestream, or a video,
+    /// which loops from the moment it is set on the channel's own timeline: there is no
+    /// pause/resume/seek for a channel) and pushes every room TV already tuned to it
     /// a fresh set-channel notify so it reloads at once, the way /screen reloads the live
     /// billboard. /channel &lt;n&gt; off clears it. Binding a map's own screens to a channel
     /// needs no separate command: /screen channel:n does it, channel:n being an ordinary source
@@ -1071,7 +1072,7 @@ public class CmdExecHandler(
         {
             await SendSystemNoticeAsync(
                 session,
-                "/channel <n> <source> sets what channel n shows (livestream only: tw:, twe:, ytl:, lv…, streamlink:<url>, stream:<url>, electron:<http(s) url>, pattern:live, a page URL)"
+                "/channel <n> <source> sets what channel n shows (tw:, twe:, twl:, ytl:, lv…, streamlink:<url>, stream:<url>, electron:<http(s) url>, pattern:live, a page URL, or a video: yt:, yte:, ytd:, sm…, lv…:vod, pattern:vod, looping from when it is set; no pause or seek)"
                     + " or off to clear it. To have a map's own screens follow a channel instead, use /screen channel:<n>.",
                 ct
             );
@@ -1088,7 +1089,7 @@ public class CmdExecHandler(
         {
             await SendSystemNoticeAsync(
                 session,
-                "/channel <n> <source>: a livestream only (tw:, twe:, ytl:, lv…, streamlink:<url>, stream:<url>, electron:<http(s) url>, pattern:live, a page URL), or off to clear.",
+                "/channel <n> <source>: a livestream (tw:, twe:, twl:, ytl:, lv…, streamlink:<url>, stream:<url>, electron:<http(s) url>, pattern:live, a page URL) or a video (yt:, yte:, ytd:, sm…, lv…:vod, pattern:vod), without extras, or off to clear.",
                 ct
             );
             return;

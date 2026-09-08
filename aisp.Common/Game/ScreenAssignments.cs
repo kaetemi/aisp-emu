@@ -54,18 +54,30 @@ public sealed class ScreenAssignments(
     // channel map rather than fake furniture rows; channel:<n> is this server's vocabulary for
     // it, resolved below. tvid= is the client's own word for a channel number, unrelated to the
     // n: tag (see _byMovie).
-    private readonly ConcurrentDictionary<uint, string> _byChannel = new();
+    // A channel's video plays from the moment the channel was set, looping, for everyone
+    // who follows it (a room TV tuned to it, a map bound to it): the channel's own timeline,
+    // never paused or seeked (there is no /channel control; /screen's controls act on a map's
+    // own video, not on a channel it follows).
+    private readonly ConcurrentDictionary<uint, Entry> _byChannel = new();
 
     /// <summary>What channel &lt;n&gt; is currently assigned, or null if nothing is.</summary>
     public string? GetChannelSource(uint channel) =>
-        _byChannel.TryGetValue(channel, out var source) ? source : null;
+        _byChannel.TryGetValue(channel, out var entry) ? entry.Source : null;
+
+    /// <summary>The timeline channel &lt;n&gt;'s video runs on (from when it was set), or null.</summary>
+    public Timeline? GetChannelTimeline(uint channel) =>
+        _byChannel.TryGetValue(channel, out var entry) ? entry.Timeline : null;
 
     /// <summary>Clears channel &lt;n&gt;'s assignment; true if it had one.</summary>
     public bool ClearChannelSource(uint channel) => _byChannel.TryRemove(channel, out _);
 
-    /// <summary>Assigns channel &lt;n&gt; a source; see <see cref="IsValidChannelContentSource"/>.</summary>
+    /// <summary>Assigns channel &lt;n&gt; a source (see <see cref="IsValidChannelContentSource"/>);
+    /// a video starts from now, so setting it again restarts it.</summary>
     public void SetChannelSource(uint channel, string source) =>
-        _byChannel[channel] = Normalize(source);
+        _byChannel[channel] = new Entry(
+            Normalize(source),
+            new Timeline(_time.GetUtcNow(), 0, null)
+        );
 
     /// <summary>Every map currently bound to channel &lt;n&gt; via channel:&lt;n&gt; (see /channel).</summary>
     public IReadOnlyList<uint> GetMapsBoundToChannel(uint channel) =>
@@ -644,9 +656,9 @@ public sealed class ScreenAssignments(
         uint.Parse(MainOf(source).AsSpan(8), NumberStyles.None, CultureInfo.InvariantCulture);
 
     /// <summary>
-    /// What /channel accepts for a channel's content: a bare stream or a web page, not a video
-    /// with a shared timeline (channels are livestream-only, with no per-channel
-    /// pause/resume/seek) and not another channel (no indirection chains). A channel is purely a
+    /// What /channel accepts for a channel's content: a bare stream, a web page or a video (which
+    /// loops on the channel's own timeline from when it was set: no per-channel
+    /// pause/resume/seek), not another channel (no indirection chains). A channel is purely a
     /// source map: no box, key, main:, crop: or other framing extras here; those belong on
     /// whoever references the channel (a room TV typing channel:&lt;n&gt;, or /screen
     /// channel:&lt;n&gt; box:... key main:...), since different screens frame the same channel
@@ -658,7 +670,6 @@ public sealed class ScreenAssignments(
         source is not null
         && !ExtrasOf(source).Any()
         && (IsStreamSource(source) || IsPageUrl(source))
-        && !IsVideoSource(source)
         && !IsChannelSource(source);
 
     /// <summary>A video with a shared timeline (not a live stream): yt:, yte:, ytd:, sm… and
@@ -808,14 +819,32 @@ public sealed class ScreenAssignments(
     /// that is unassigned also resolves to the title card, same as an unassigned room TV's
     /// channel button. Anything that is not a channel: word passes through untouched.
     /// </summary>
-    private string ResolveChannelIndirection(string source, uint? requestTvId)
+    private string ResolveChannelIndirection(
+        string source,
+        uint? requestTvId,
+        out Timeline? channelTimeline
+    )
     {
+        channelTimeline = null;
         var words = Normalize(source).Split(' ');
         if (!IsChannelSource(words[0]))
             return source;
         var n = IsAutoChannelWord(words[0]) ? requestTvId : ChannelNumberOf(words[0]);
         var content = n is { } number ? MainOf(GetChannelSource(number) ?? TitleCard) : TitleCard;
+        if (n is { } bound)
+            channelTimeline = GetChannelTimeline(bound);
         return string.Join(' ', new[] { content }.Concat(words.Skip(1)));
+    }
+
+    /// <summary>A channel reference resolved to the hook's form: a video on the channel runs on
+    /// the channel's timeline, shared by everyone following it.</summary>
+    private string ResolveChannelReference(string source, uint? requestTvId)
+    {
+        var resolved = ResolveChannelIndirection(source, requestTvId, out var channelTimeline);
+        var hook = ToHookSource(resolved, _defaults);
+        return channelTimeline is not null && IsVideoSource(resolved)
+            ? WithTimeline(hook, channelTimeline)
+            : hook;
     }
 
     /// <summary>
@@ -857,16 +886,20 @@ public sealed class ScreenAssignments(
                 return WithTimeline(ToHookSource(typed, _defaults), timeline);
             }
             if (IsTypedSource(typed))
-                return ToHookSource(ResolveChannelIndirection(typed, requestTvId), _defaults);
+                return ResolveChannelReference(typed, requestTvId);
         }
         var entry = mapId is { } map && _byMap.TryGetValue(map, out var found) ? found : null;
         if (entry is null)
             return route == "room-tv"
                 ? Blank
-                : ToHookSource(ResolveChannelIndirection("channel:auto", requestTvId), _defaults);
+                : ResolveChannelReference("channel:auto", requestTvId);
         if (string.Equals(entry.Source, TestScreen, StringComparison.OrdinalIgnoreCase))
             return null;
-        var assigned = ResolveChannelIndirection(entry.Source, requestTvId);
+        var assigned = ResolveChannelIndirection(
+            entry.Source,
+            requestTvId,
+            out var channelTimeline
+        );
         // Town screens attenuate with distance by default; an explicit rolloff word wins, filled
         // out to the hook's seven-number form; rolloff:flat drops it.
         var words = ToHookSource(assigned, _defaults).Split(' ').ToList();
@@ -888,7 +921,11 @@ public sealed class ScreenAssignments(
             words.Add(defaultRolloff);
         }
         var joined = string.Join(' ', words);
-        return IsVideoSource(assigned) ? WithTimeline(joined, entry.Timeline) : joined;
+        // A video of the map's own runs on the map's timeline (/screen pause, resume, seek); one
+        // followed through a channel on the channel's, the same for every screen following it.
+        return IsVideoSource(assigned)
+            ? WithTimeline(joined, channelTimeline ?? entry.Timeline)
+            : joined;
     }
 }
 

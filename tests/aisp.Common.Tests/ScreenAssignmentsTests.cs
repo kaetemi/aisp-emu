@@ -370,6 +370,7 @@ public sealed class ScreenAssignmentsTests
         Assert.False(ScreenAssignments.IsYouTubeVideoSource("yte:dQw4w9WgXcQ"));
         Assert.False(ScreenAssignments.IsYouTubeEmbedSource("yte:"));
         Assert.False(ScreenAssignments.IsYouTubeEmbedSource("yte:bad/id"));
+        Assert.True(ScreenAssignments.IsValidChannelContentSource("yte:dQw4w9WgXcQ"));
         Assert.True(ScreenAssignments.IsYouTubeLiveSource("ytl:jfKfPfyJRdk"));
         Assert.False(ScreenAssignments.IsVideoSource("ytl:jfKfPfyJRdk"));
         Assert.False(ScreenAssignments.IsYouTubeVideoSource("ytd:"));
@@ -592,11 +593,11 @@ public sealed class ScreenAssignmentsTests
     }
 
     [Fact]
-    public void Channels_AreSharedByNumber_LivestreamOnlyAndIndirectFromRoomTvsAndMaps()
+    public void Channels_AreSharedByNumber_AndIndirectFromRoomTvsAndMaps()
     {
-        // Livestream sources are valid channel content; a video (needs a timeline) or another
-        // channel (no indirection chains) is not.
-        Assert.True(ScreenAssignments.IsValidChannelContentSource("tw:someone"));
+        // Livestreams and videos are valid channel content; another channel (no indirection
+        // chains) is not.
+        Assert.True(ScreenAssignments.IsValidChannelContentSource("twl:someone"));
         Assert.True(ScreenAssignments.IsValidChannelContentSource("twe:someone"));
         Assert.True(ScreenAssignments.IsValidChannelContentSource("ytl:abc"));
         Assert.True(ScreenAssignments.IsValidChannelContentSource("lv351315472"));
@@ -605,15 +606,15 @@ public sealed class ScreenAssignmentsTests
         // A web page is channel content too (the help has always said so): the screen page shows
         // it over the video box, the same as a page given to /screen directly.
         Assert.True(ScreenAssignments.IsValidChannelContentSource("https://example.com/rain.html"));
-        Assert.False(ScreenAssignments.IsValidChannelContentSource("yt:dQw4w9WgXcQ"));
-        Assert.False(ScreenAssignments.IsValidChannelContentSource("sm11273499"));
-        Assert.False(ScreenAssignments.IsValidChannelContentSource("lv351315472:vod"));
-        Assert.False(ScreenAssignments.IsValidChannelContentSource("pattern:vod"));
+        Assert.True(ScreenAssignments.IsValidChannelContentSource("ytd:dQw4w9WgXcQ"));
+        Assert.True(ScreenAssignments.IsValidChannelContentSource("sm11273499"));
+        Assert.True(ScreenAssignments.IsValidChannelContentSource("lv351315472:vod"));
+        Assert.True(ScreenAssignments.IsValidChannelContentSource("pattern:vod"));
         Assert.False(ScreenAssignments.IsValidChannelContentSource("channel:2"));
         Assert.False(ScreenAssignments.IsValidChannelContentSource("blank"));
         // A channel is purely a source map: framing belongs on whoever references it, not here.
-        Assert.False(ScreenAssignments.IsValidChannelContentSource("tw:someone box:0/0/10/10"));
-        Assert.False(ScreenAssignments.IsValidChannelContentSource("tw:someone key"));
+        Assert.False(ScreenAssignments.IsValidChannelContentSource("twl:someone box:0/0/10/10"));
+        Assert.False(ScreenAssignments.IsValidChannelContentSource("twl:someone key"));
         Assert.False(
             ScreenAssignments.IsValidChannelContentSource("https://example.com/rain.html key")
         );
@@ -670,6 +671,46 @@ public sealed class ScreenAssignmentsTests
         Assert.Null(assignments.GetChannelSource(2));
         Assert.Equal("title", assignments.Resolve("room-tv", "channel:2 n:9", null));
         Assert.Equal("title", assignments.Resolve("channel-screen", null, 10990100));
+    }
+
+    [Fact]
+    public void ChannelVideos_LoopFromWhenTheChannelWasSet_OnOneTimelineForEveryFollower()
+    {
+        var time = new TestTime();
+        var assignments = new ScreenAssignments(time);
+        var t0 = time.Now.ToUnixTimeSeconds();
+        assignments.Set(10990100, "channel:2");
+        time.Now = time.Now.AddSeconds(20);
+        assignments.SetChannelSource(2, "ytd:abc123");
+        // The channel's timeline (from when it was set, not from when the map was bound) reaches
+        // a room TV tuned to it and a map bound to it alike; the map's framing extras stay.
+        Assert.Equal(
+            $"yt-dlp:https://www.youtube.com/watch?v=abc123 start:{t0 + 20} offset:0",
+            assignments.Resolve("room-tv", "channel:2 n:9", null)
+        );
+        Assert.Equal(
+            $"yt-dlp:https://www.youtube.com/watch?v=abc123 {ScreenAssignments.DefaultRolloffWord(10990100)} start:{t0 + 20} offset:0",
+            assignments.Resolve("channel-screen", null, 10990100)
+        );
+        // No pause or seek for a channel: /screen's controls act on a map's own video only.
+        Assert.False(assignments.Control(10990100, "pause"));
+        Assert.EndsWith(
+            $"start:{t0 + 20} offset:0",
+            assignments.Resolve("channel-screen", null, 10990100)
+        );
+        // The embed carries it in its page URL too.
+        assignments.SetChannelSource(3, "yte:abc123");
+        time.Now = time.Now.AddSeconds(5);
+        Assert.Equal(
+            $"electron:/ai-sp/yt-embed?v=abc123&start={t0 + 20}&offset=0 start:{t0 + 20} offset:0",
+            assignments.Resolve("room-tv", "channel:3 n:9", null)
+        );
+        // Setting the channel again restarts its video from now.
+        assignments.SetChannelSource(2, "ytd:abc123");
+        Assert.EndsWith(
+            $"start:{t0 + 25} offset:0",
+            assignments.Resolve("room-tv", "channel:2 n:9", null)
+        );
     }
 
     [Fact]
