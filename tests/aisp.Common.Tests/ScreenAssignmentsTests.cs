@@ -762,4 +762,31 @@ public sealed class ScreenAssignmentsTests
             assignments.Resolve("channel-screen", null, 40000003, requestTvId: 1)
         );
     }
+
+    [Fact]
+    public void ReloadIds_ScopeTheHookToOneChannel_OrToEveryScreen()
+    {
+        Assert.Equal("lv0", ScreenAssignments.ReloadForChannel(0));
+        Assert.Equal("lv99", ScreenAssignments.ReloadForChannel(99));
+        Assert.Equal("lv100", ScreenAssignments.ReloadEveryScreen);
+        Assert.Equal("lv200", ScreenAssignments.ReloadEveryScreenHard);
+        Assert.Equal(ScreenAssignments.ReloadEveryScreen, ScreenAssignments.ReloadForChannel(100));
+        Assert.Equal(ScreenAssignments.ReloadEveryScreen, ScreenAssignments.ReloadForChannel(1234));
+    }
+
+    [Fact]
+    public void FollowsChannel_TellsBoundMaps_FromAutoOnes_FromTheRest()
+    {
+        var assignments = new ScreenAssignments();
+        assignments.Set(2, "channel:3");
+        assignments.Set(3, "channel:auto");
+        assignments.Set(4, "channel:4 key");
+        assignments.Set(5, "tw:someone");
+        Assert.Equal(ScreenAssignments.ChannelFollowing.Auto, assignments.FollowsChannel(1, 3));
+        Assert.Equal(ScreenAssignments.ChannelFollowing.Bound, assignments.FollowsChannel(2, 3));
+        Assert.Equal(ScreenAssignments.ChannelFollowing.None, assignments.FollowsChannel(2, 4));
+        Assert.Equal(ScreenAssignments.ChannelFollowing.Auto, assignments.FollowsChannel(3, 3));
+        Assert.Equal(ScreenAssignments.ChannelFollowing.Bound, assignments.FollowsChannel(4, 4));
+        Assert.Equal(ScreenAssignments.ChannelFollowing.None, assignments.FollowsChannel(5, 3));
+    }
 }

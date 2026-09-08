@@ -242,8 +242,9 @@ internal static class ScreenEndpointsExtensions
         // one by a MyRoom map above) never needs the page to poll: the client re-navigates it on
         // every assignment change (movie set, channel switch, room re-entry). live-watch (the
         // Stage) is pushed too: both /screen and /channel on a map it is bound to send it
-        // notify_nicolive_reload (CmdExecHandler). A /channel-screen that did not resolve to a
-        // room TV is a town screen (confirmed on Akihabara) with neither guarantee, so it alone
+        // notify_nicolive_reload (CmdExecHandler), and so is a /channel-screen that did not
+        // resolve to a room TV, a town screen (confirmed on Akihabara): the launcher hook reloads
+        // its page on that same notify. Only the catch-all /screen page, which nothing pushes,
         // keeps polling. roomtv is a separate, narrower flag: only a genuine room TV shows the
         // comment overlay, never the Stage or a town screen, no matter what the page is told by
         // ext_setCommentVisible; the page cannot tell a room TV from anything else on its own,
@@ -251,7 +252,7 @@ internal static class ScreenEndpointsExtensions
         // (off when absent): the client never sets it, so the page must start from the server's
         // value, and it starts over on every re-navigation.
         var isRoomTv = effectiveRoute == "room-tv";
-        var noPoll = isRoomTv || effectiveRoute == "live-watch";
+        var noPoll = effectiveRoute != "screen";
         var titleSuffix =
             (isRoomTv ? ";roomtv=1" : "")
             + (noPoll ? ";nopoll=1" : "")

@@ -121,10 +121,11 @@ body.tv #comments{top:36px}
   // Also gates the comment overlay below, so it can never show on anything but a room TV, no
   // matter what ext_setCommentVisible is called with.
   var roomTv=/;roomtv=1(?:;|$)/.test(document.title||'');
-  // Separately, whether this page needs to poll at all: true for a room TV (above), and also for
-  // live-watch (the Stage), which /screen and /channel both push a reload to instead. A town
-  // screen (a channel-screen that did not resolve to a room TV, Akihabara confirmed) has neither
-  // guarantee, so it is the one case still left polling.
+  // Separately, whether this page needs to poll at all: not for a room TV (above), nor for
+  // live-watch (the Stage) or a town screen (a channel-screen that did not resolve to a room
+  // TV, Akihabara confirmed), which /screen and /channel both push a reload to instead (the
+  // client reloads the Stage's billboard itself, the launcher hook a town screen's page). Only
+  // the catch-all screen page, which nothing pushes, is left polling.
   var noPoll=/;nopoll=1(?:;|$)/.test(document.title||'');
   // The comment overlay starts from the server's default for this TV (comment=1 in the title,
   // otherwise off). The client never sets it on its own: its panel button is an empty case in
@@ -525,9 +526,10 @@ body.tv #comments{top:36px}
   // (above) says the server already pushes this page a reload instead: a room TV re-navigates on
   // every assignment change on its own (movie set, channel switch, room re-entry), and live-watch
   // (the Stage) gets notify_nicolive_reload from both /screen and /channel. A /channel-screen
-  // that is not a room TV (a town map's own screen, Akihabara confirmed) has neither guarantee,
-  // so it is the one case polling; the pushed cases never run this at all, so a relaxed 30s
-  // interval here only affects that one less time-sensitive case.
+  // that is not a room TV (a town map's own screen, Akihabara confirmed) is reloaded on that
+  // notify by the launcher hook. Only the catch-all screen page (any other URL the client asked
+  // for) polls; the pushed cases never run this at all, so a relaxed 30s interval here only
+  // affects that one less time-sensitive case.
   function pollSource(){
     try{
       var xhr=new XMLHttpRequest();

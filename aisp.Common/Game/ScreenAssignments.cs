@@ -275,12 +275,59 @@ public sealed class ScreenAssignments(
     public const string TwitchEmbedParent = "aisp.moe";
 
     /// <summary>
-    /// The map with the Nico Live billboard (seedData/maps.json: "Stage"). notify_nicolive_reload
-    /// only does anything there (confirmed on the shopping mall, which has none): the client has
-    /// nothing on other maps that reacts to it, so sending it elsewhere is a silent no-op.
-    /// CmdExecHandler scopes both its sends (/screen, /channel) to this map.
+    /// The map with the Nico Live billboard (seedData/maps.json: "Stage"), the one screen the
+    /// client itself reloads on notify_nicolive_reload (confirmed on the shopping mall, which
+    /// has none, that the client does nothing with it elsewhere). The launcher hook fills that
+    /// in for a town map's own screens, so CmdExecHandler sends the notify on every map.
     /// </summary>
     public const uint StageMapId = 19_001_003;
+
+    /// <summary>
+    /// The live id notify_nicolive_reload carries doubles as the reload's scope for the
+    /// launcher hook, which reloads a town map's own screens on that packet: lv0..lv99 means
+    /// only the screens whose own tvid= (the channel number the client gave them) is that
+    /// number, lv100 every screen on the map. The Stage's billboard re-navigates to the id as
+    /// a page, which the emulator ignores (live-watch serves the same page for any id).
+    /// </summary>
+    public const string ReloadEveryScreen = "lv100";
+
+    /// <summary>
+    /// lv200: every screen on the map, and the hook first tears down whatever it plays there
+    /// (the stream or browser source) before the page reloads, so a stuck decoder or a wedged
+    /// player goes with it. What /screen reload sends.
+    /// </summary>
+    public const string ReloadEveryScreenHard = "lv200";
+
+    /// <summary>The reload id for the screens following channel n (see <see cref="ReloadEveryScreen"/>); every screen past lv99.</summary>
+    public static string ReloadForChannel(uint channel) =>
+        channel <= 99
+            ? string.Create(CultureInfo.InvariantCulture, $"lv{channel}")
+            : ReloadEveryScreen;
+
+    /// <summary>
+    /// How a map's own screens relate to channel n: bound to it (/screen channel:n), following
+    /// whichever channel each screen's own tvid= names (no assignment, or channel:auto: the
+    /// screens on channel n among them are the ones that show it), or showing something else.
+    /// </summary>
+    public enum ChannelFollowing
+    {
+        None,
+        Bound,
+        Auto,
+    }
+
+    public ChannelFollowing FollowsChannel(uint mapId, uint channel)
+    {
+        var source = Get(mapId);
+        if (source is null)
+            return ChannelFollowing.Auto;
+        var main = MainOf(source);
+        if (!IsChannelSource(main))
+            return ChannelFollowing.None;
+        if (IsAutoChannelWord(main))
+            return ChannelFollowing.Auto;
+        return ChannelNumberOf(main) == channel ? ChannelFollowing.Bound : ChannelFollowing.None;
+    }
 
     /// <summary>
     /// Canonical form of a source: trimmed, with the typed short ids in their prefixed forms
