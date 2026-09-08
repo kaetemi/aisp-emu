@@ -47,6 +47,7 @@ body.tv #comments{top:36px}
 .panel .lab{position:absolute;left:4px;top:2px;font-size:11px;color:#f80}
 .card{position:absolute;background:#0d0b1a;color:#e8e6f0;text-align:center;font-family:Verdana,Arial,sans-serif;font-weight:bold;overflow:hidden}
 .card .w{position:absolute;left:0;width:100%;letter-spacing:4px}
+.card .k{position:absolute;right:10px;top:0;height:100%;display:flex;align-items:center;font:bold 16px/20px "MS Gothic","ＭＳ ゴシック",monospace;letter-spacing:0;color:#e8e6f0}
 </style></head><body>
 <div id="navi"></div>
 <div id="flvplayer_container">
@@ -242,20 +243,43 @@ body.tv #comments{top:36px}
   }
   // "title": a title card, "aisp-emu" centred in each panel on a dark background ('all'), or
   // on the Stage banner alone ('top') while the main panel plays something and nothing else
-  // claims the banner.
-  var cards=[];
+  // claims the banner. That banner shows what plays instead as soon as the hook has told this
+  // page its title (window.aisp, pushed as it changes): the video's title from yt-dlp or the
+  // embed, a browser source's own document.title.
+  var cards=[], bannerCard=null;
+  function bannerText(){ return media&&media.active&&media.title?media.title:'aisp-emu'; }
+  function fitBanner(){
+    if(!bannerCard) return;
+    var t=bannerCard.text, w=bannerCard.width, fs=bannerCard.size, text=bannerText(), own=text==='aisp-emu';
+    // A video's play time in the right corner, the way the room TV's clock page shows it;
+    // nothing for a live stream (no duration).
+    var k=bannerCard.clock, vod=media&&media.active&&media.duration>0, reserve=0;
+    if(vod){
+      if(!k){ k=document.createElement('div'); k.className='k'; bannerCard.card.appendChild(k); bannerCard.clock=k; }
+      k.textContent=clock(media.position)+' / '+clock(media.duration);
+      reserve=k.offsetWidth+16;
+    } else if(k){ bannerCard.card.removeChild(k); bannerCard.clock=null; }
+    // The text sits in a span of its own width (the line is full-width), so it can be measured;
+    // a long title shrinks down to a floor, then clips: one line, no wrap. It stays centred, so
+    // the clock's width is kept free on both sides.
+    t.textContent=''; var span=document.createElement('span'); span.textContent=text; t.appendChild(span);
+    t.style.letterSpacing=own?'4px':'1px';
+    t.style.left=reserve+'px'; t.style.width=(w-2*reserve)+'px'; t.style.overflow='hidden';
+    do { t.style.fontSize=fs+'px'; t.style.lineHeight=fs+'px'; t.style.top=Math.round((bannerCard.height-fs)/2)+'px'; fs-=2; } while(span.offsetWidth>w-16-2*reserve&&fs>=14);
+  }
   function showTitleCard(mode){
     for(var i=0;i<cards.length;i++) box.removeChild(cards[i]);
-    cards=[];
+    cards=[]; bannerCard=null;
     if(!mode) return;
     var rects=isLive?(mode==='top'?[[7,7,543,53,26]]:[[7,7,543,53,26],[7,65,543,382,56]]):(mode==='top'?[]:[[0,0,486,343,48]]);
     for(var r=0;r<rects.length;r++){
       var x=rects[r][0], y=rects[r][1], w=rects[r][2], h=rects[r][3], fs=rects[r][4];
       var c=document.createElement('div'); c.className='card';
       c.style.left=x+'px'; c.style.top=y+'px'; c.style.width=w+'px'; c.style.height=h+'px';
-      var t=document.createElement('div'); t.className='w'; t.style.fontSize=fs+'px'; t.style.lineHeight=fs+'px'; t.style.top=Math.round((h-fs)/2)+'px'; t.innerHTML='aisp-emu';
+      var t=document.createElement('div'); t.className='w'; t.style.fontSize=fs+'px'; t.style.lineHeight=fs+'px'; t.style.top=Math.round((h-fs)/2)+'px'; t.style.whiteSpace='nowrap'; t.innerHTML='aisp-emu';
       c.appendChild(t);
       box.appendChild(c); cards.push(c);
+      if(mode==='top'){ bannerCard={card:c,text:t,width:w,height:h,size:fs,clock:null}; fitBanner(); }
     }
   }
   var boxFrame=null, keyFill=null;
@@ -434,6 +458,7 @@ body.tv #comments{top:36px}
   }
   // Redraws the pages that show live values; the scroller picks its text up at its next spawn.
   function renderOverlay(){
+    fitBanner();
     if(clockEl){
       var t=clockText(), spans=clockEl.getElementsByTagName('span');
       for(var i=0;i<spans.length;i++) if(spans[i].firstChild.nodeValue!==t) spans[i].firstChild.nodeValue=t;
