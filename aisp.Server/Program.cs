@@ -145,7 +145,12 @@ internal class Program
         builder
             .Services.AddOptions<ApiSettings>()
             .Bind(builder.Configuration.GetSection("ApiSettings"));
-        builder.Services.AddSingleton<ScreenAssignments>();
+        builder.Services.AddSingleton(sp => new ScreenAssignments(
+            TimeProvider.System,
+            ScreenSourceDefaults.FromOptions(
+                sp.GetRequiredService<IOptions<ServerOptions>>().Value.Screens
+            )
+        ));
         builder.Services.AddSingleton<BroadcastService>();
         builder.Services.AddScoped<ModerationService>();
         builder.Services.AddScoped<UserAdminService>();
