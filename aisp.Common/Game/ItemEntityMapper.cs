@@ -67,12 +67,19 @@ internal enum WardrobeCategoryId : uint
     FurnitureFloor = 12,
     FurnitureWall = 13,
     FurnitureCeiling = 14,
+
+    /// <summary>Drama figure boxes (141xxxxx and 142xxxxx). The client's tab mapping (0x519E60) puts
+    /// categories 15 and 16 in a tab group of their own, after fashion (0 to 11) and furniture (12 to 14).</summary>
+    DramaFigure = 16,
 }
 
 internal static class ItemEntityMapper
 {
     public static uint ResolveBodyspot(int itemId, int storedSocket = 0, string? name = null)
     {
+        if (IsDramaFigureItem(itemId))
+            return 0;
+
         if (itemId is >= 10_000_000 and < 200_000_000)
         {
             var derived = DeriveClothingBodyspot(itemId, name);
@@ -127,6 +134,8 @@ internal static class ItemEntityMapper
     {
         var prefix = itemId / 100_000;
         if (prefix is >= 100 and <= 107)
+            return (uint)WardrobeSocketBit.None;
+        if (IsDramaFigureItem(itemId))
             return (uint)WardrobeSocketBit.None;
 
         return AccessoryAttachMap.ToSocketBit(itemId, (uint)storedSocket);
@@ -228,6 +237,9 @@ internal static class ItemEntityMapper
         if (IsWardrobeAccessoryItem(item.Id))
             return (uint)WardrobeCategoryId.Accessory;
 
+        if (IsDramaFigureItem(item.Id))
+            return (uint)WardrobeCategoryId.DramaFigure;
+
         return item.CatalogCategory is int persisted
             ? (uint)persisted
             : ResolveCatalogCategory(item);
@@ -249,6 +261,9 @@ internal static class ItemEntityMapper
         // Check this before placement flags so backpacks / wings (114xxxxx) cannot be furniture.
         if (IsWardrobeAccessoryPrefix(itemId / 100_000))
             return (uint)WardrobeCategoryId.Accessory;
+
+        if (IsDramaFigureItem(itemId))
+            return (uint)WardrobeCategoryId.DramaFigure;
 
         if (placementFlags is { } flags && flags != 0)
             return ResolveFurnitureCategory(flags);
@@ -338,6 +353,9 @@ internal static class ItemEntityMapper
         itemId is >= 10_000_000 and < 200_000_000 && IsWardrobeAccessoryPrefix(itemId / 100_000);
 
     internal static bool IsFurnitureCatalogCategory(int category) => category is >= 12 and <= 14;
+
+    /// <summary>The drama figure boxes sold as bag items: 141xxxxx for the MEN dolls, 142xxxxx for the WOMEN dolls.</summary>
+    internal static bool IsDramaFigureItem(int itemId) => itemId / 100_000 is 141 or 142;
 
     private static bool IsWardrobeAccessoryPrefix(int prefix) =>
         prefix is 108 or 109 or 112 or >= 114 and <= 118 or >= 122 and <= 124;

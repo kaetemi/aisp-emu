@@ -764,14 +764,21 @@ Client uses both in CAIProtoArea_vtbl__func_40 to size the trigger volume. HalfE
 - **Direction:** ServerToClient
 - **Packet ID (hex):** 0xE60C
 - **Packet ID (int):** 58892
-- **Packet Size:** 8
-- **Description:** Niconi commons base list result.
+- **Packet Size:** 8 + (Count × 113)
+- **Description:** The titles of the drama notebook's figure picker, one per figure box the character has a doll in (at most 1024). Record parser 0x79B140, 0x74 apart in memory.
 
 **Layout:**
 
 ```text
     UInt {Result}
-    UInt {CommonsBase}
+    UInt {Count}
+    foreach entry:
+        UInt {Id}                 // the figure box (1, 2, 1000, 1001, 1002)
+        UInt {Reserved}           // 0
+        UInt {Reserved}           // 0; the client keeps it as a pointer, anything else crashed the login
+        Bytes(96) {Name}          // Shift-JIS, NUL-terminated
+        Byte {Available}
+        UInt {Reserved}           // 0; a pointer in the client's record too
 ```
 
 ## send_get_monster_data (NpcGetDataRequest)
@@ -921,14 +928,29 @@ Client uses both in CAIProtoArea_vtbl__func_40 to size the trigger volume. HalfE
 - **Direction:** ServerToClient
 - **Packet ID (hex):** 0x878A
 - **Packet ID (int):** 34698
-- **Packet Size:** 8
-- **Description:** UCC advance figure base list result.
+- **Packet Size:** 8 + (Count × 377)
+- **Description:** The dolls the drama notebook's figure picker offers the character, at most 100. Each record is 377 bytes (client parser 0x79B1E0; 0x17C apart in memory).
 
 **Layout:**
 
 ```text
     UInt {Result}
-    UInt {AdvFigures}
+    UInt {Count}
+    foreach figure:
+        UInt {FigureId}           // the picker looks it up as a 16-bit word
+        UInt {BoxId}              // the box: picker group, folder of the logo and package art
+        Bytes(96) {Name}          // Shift-JIS, NUL-terminated
+        Byte {Owned}
+        UInt {Unused}             // +0x6C; the ingest reads its low byte
+        UInt {People}             // +0x70; 1, 2 or 3, anything else counts as none
+        UInt {PackageId}          // +0x74; handed to the doll's creation with +0x78 and +0x7C
+        UInt {ModelId}            // +0x78
+        UInt {ModelId}            // +0x7C; the doll's model (in-memory +0x2c, 0x57c452)
+        UInt {BoxId}              // +0x80; folder of ./interface/figure/%d/logo.dds and package_%d.dds
+        UInt {PackageId}          // +0x84; the package_%d index (0, 1000, … 11000 for boxes 1 and 2)
+        UInt {Equipment} × 30     // +0x88; item ids the doll is dressed with (0x4066c0)
+        UInt {Reserved} × 30      // a second word per slot, passed along with the item id; 0
+        UInt {Reserved}           // 0
 ```
 
 ## send_get_ucc_voice_base_list (UccVoiceBaseListRequest)

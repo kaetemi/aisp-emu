@@ -375,4 +375,50 @@ public class ItemEntityMapperTests
             ItemEntityMapper.ResolveInventoryTabCategory(item)
         );
     }
+
+    [Theory]
+    [InlineData(14100000)]
+    [InlineData(14100011)]
+    [InlineData(14200000)]
+    [InlineData(14200011)]
+    public void Drama_figure_boxes_take_the_figure_tab(int itemId)
+    {
+        Assert.True(ItemEntityMapper.IsDramaFigureItem(itemId));
+        Assert.Equal(
+            (uint)WardrobeCategoryId.DramaFigure,
+            ItemEntityMapper.ResolveInventoryTabCategory(itemId)
+        );
+
+        var data = ItemEntityMapper.ToItemBaseListData(
+            new Item
+            {
+                Id = itemId,
+                Socket = 0,
+                Name = "テストフィギュア",
+            }
+        );
+        Assert.Equal((uint)WardrobeCategoryId.DramaFigure, data.Category);
+        Assert.Equal(0u, data.Socket1);
+        Assert.Equal(ItemFlags.None, data.Flags);
+        Assert.False(ItemEntityMapper.IsFurnitureCatalogCategory((int)data.Category));
+    }
+
+    [Fact]
+    public void ToItemBaseListData_keeps_141_figure_boxes_off_the_furniture_tab_even_when_persisted_as_furniture()
+    {
+        var item = new Item
+        {
+            Id = 14100000,
+            Socket = 0,
+            Name = "長身+りりしいモデル",
+            CatalogCategory = (int)WardrobeCategoryId.FurnitureFloor,
+        };
+
+        var data = ItemEntityMapper.ToItemBaseListData(item);
+        Assert.Equal((uint)WardrobeCategoryId.DramaFigure, data.Category);
+        Assert.Equal(
+            (uint)WardrobeCategoryId.DramaFigure,
+            ItemEntityMapper.ResolveInventoryTabCategory(item)
+        );
+    }
 }
