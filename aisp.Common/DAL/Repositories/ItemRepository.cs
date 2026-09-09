@@ -120,10 +120,13 @@ public sealed class ItemRepository(MainContext db) : IItemRepository
                 ItemEntityMapper.ResolvePersistedCatalogCategory(item.Id, item.Name, null);
             if (item.CatalogCategory is int persisted)
             {
-                // Pre-accessory-prefix seeds stored 114xxxxx backpacks as furniture (12-14).
+                // Older seeds filed the 114xxxxx backpacks and the 141xxxxx and 142xxxxx
+                // figure boxes as furniture (12 to 14), the fallback for every id from 110 up.
                 if (
-                    ItemEntityMapper.IsWardrobeAccessoryItem(item.Id)
-                    && ItemEntityMapper.IsFurnitureCatalogCategory(persisted)
+                    (
+                        ItemEntityMapper.IsWardrobeAccessoryItem(item.Id)
+                        || ItemEntityMapper.IsDramaFigureItem(item.Id)
+                    ) && ItemEntityMapper.IsFurnitureCatalogCategory(persisted)
                 )
                     item.CatalogCategory = resolved;
                 continue;
