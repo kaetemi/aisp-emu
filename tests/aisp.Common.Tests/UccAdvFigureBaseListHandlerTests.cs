@@ -14,7 +14,7 @@ namespace aisp.Common.Tests;
 public class UccAdvFigureBaseListHandlerTests
 {
     [Fact]
-    public async Task Empty_bag_returns_the_three_ip_figures()
+    public async Task Empty_bag_returns_the_three_ip_figures_and_unowned_shop_definitions()
     {
         var (connection, options) = TestDb.CreateInMemoryMainContext();
         try
@@ -36,12 +36,14 @@ public class UccAdvFigureBaseListHandlerTests
             Assert.Equal(PacketType.UccAdvFigureBaseListResponse, sent.Type);
             var reader = new PacketReader(sent.Payload);
             Assert.Equal(0u, reader.ReadUInt());
-            Assert.Equal((uint)DramaFigures.AlwaysGranted.Count, reader.ReadUInt());
+            Assert.Equal((uint)DramaFigures.AlwaysGranted.Count + 24, reader.ReadUInt());
             Assert.Equal(DramaFigures.DcBoxId, reader.ReadUInt());
             Assert.Equal(
-                8 + DramaFigures.AlwaysGranted.Count * UccAdvFigure.WireSize,
+                8 + (DramaFigures.AlwaysGranted.Count + 24) * UccAdvFigure.WireSize,
                 sent.Payload.Length
             );
+            AssertShopProbe(sent.Payload, owned: false);
+            AssertPaidFigureVisuals(sent.Payload);
         }
         finally
         {
@@ -89,7 +91,7 @@ public class UccAdvFigureBaseListHandlerTests
 
             var reader = new PacketReader(Assert.Single(session.Sent).Payload);
             Assert.Equal(0u, reader.ReadUInt());
-            Assert.Equal(4u, reader.ReadUInt());
+            Assert.Equal(27u, reader.ReadUInt());
             Assert.Equal(DramaFigures.DcBoxId, reader.ReadUInt());
             SkipFigureRest(ref reader);
             Assert.Equal(DramaFigures.ClannadBoxId, reader.ReadUInt());
@@ -97,7 +99,8 @@ public class UccAdvFigureBaseListHandlerTests
             Assert.Equal(DramaFigures.ShuffleBoxId, reader.ReadUInt());
             SkipFigureRest(ref reader);
             Assert.Equal((DramaFigures.MenBoxId << 8) | 1u, reader.ReadUInt());
-            Assert.Equal(DramaFigures.MenBoxId, reader.ReadUInt());
+            Assert.Equal(DramaFigures.MenItemIdStart, reader.ReadUInt());
+            AssertShopProbe(Assert.Single(session.Sent).Payload, owned: true);
         }
         finally
         {
@@ -145,7 +148,8 @@ public class UccAdvFigureBaseListHandlerTests
 
             var reader = new PacketReader(Assert.Single(session.Sent).Payload);
             Assert.Equal(0u, reader.ReadUInt());
-            Assert.Equal(3u, reader.ReadUInt());
+            Assert.Equal(27u, reader.ReadUInt());
+            AssertShopProbe(Assert.Single(session.Sent).Payload, owned: false);
         }
         finally
         {
@@ -176,6 +180,79 @@ public class UccAdvFigureBaseListHandlerTests
         var menTitles = DramaFigures.TitlesOwnedBy([14100000]);
         Assert.Equal(4, menTitles.Count);
         Assert.Contains(menTitles, title => title.Id == DramaFigures.MenBoxId);
+    }
+
+    private static void AssertPaidFigureVisuals(ReadOnlySpan<byte> payload)
+    {
+        // Check the delivered registry, including later packages that previously lost
+        // their heads when 1000..11000 was sent as the face variant.
+        uint[] models = [1001021, 1001011, 1001031, 1002011, 1002021, 1002031];
+        // Package artwork specifies both cut and color, including different wigs
+        // for figures with the same face name at different heights.
+        uint[] wigs =
+        [
+            10920010,
+            10920024,
+            10920041,
+            10920012,
+            10920023,
+            10920040,
+            10920014,
+            10920031,
+            10920042,
+            10920013,
+            10920030,
+            10920044,
+            10930010,
+            10930024,
+            10930041,
+            10930012,
+            10930023,
+            10930040,
+            10930014,
+            10930021,
+            10930042,
+            10930013,
+            10930020,
+            10930044,
+        ];
+        for (var index = 0; index < 24; index++)
+        {
+            var reader = new PacketReader(
+                payload.Slice(8 + (3 + index) * UccAdvFigure.WireSize, UccAdvFigure.WireSize)
+            );
+            var box = index < 12 ? 1u : 2u;
+            var package = (uint)(index % 12);
+            Assert.Equal((box << 8) | (package + 1), reader.ReadUInt());
+            Assert.Equal((index < 12 ? 14100000u : 14200000u) + package, reader.ReadUInt());
+            reader.ReadBytes(UccAdvFigure.NameBytes);
+            Assert.Equal(0, reader.ReadByte());
+            Assert.Equal(index < 12 ? 1u : 2u, reader.ReadUInt()); // gender selects coverage rules
+            Assert.Equal(1u, reader.ReadUInt());
+            Assert.Equal(0u, reader.ReadUInt()); // default face, independent of package
+            Assert.Equal(wigs[index], reader.ReadUInt()); // base hair survives equipment changes
+            Assert.Equal(models[index / 4], reader.ReadUInt());
+            Assert.Equal(box, reader.ReadUInt());
+            Assert.Equal(package * 1000, reader.ReadUInt());
+            uint[] clothing =
+                box == 1
+                    ? [10100220, 10200100, 10400030, 10500070, 10700030]
+                    : [10100060, 10200090, 10400000, 10500010, 10600000, 10700000];
+            foreach (var itemId in clothing)
+                Assert.Equal(itemId, reader.ReadUInt());
+            // Base hair must not also appear as a removable wardrobe item.
+            for (var slot = clothing.Length; slot < UccAdvFigure.EquipSlotCount; slot++)
+                Assert.Equal(0u, reader.ReadUInt());
+        }
+    }
+
+    private static void AssertShopProbe(ReadOnlySpan<byte> payload, bool owned)
+    {
+        var reader = new PacketReader(payload[^(24 * UccAdvFigure.WireSize)..]);
+        Assert.Equal(0x101u, reader.ReadUInt());
+        Assert.Equal(DramaFigures.MenItemIdStart, reader.ReadUInt());
+        reader.ReadBytes(UccAdvFigure.NameBytes);
+        Assert.Equal(owned ? (byte)1 : (byte)0, reader.ReadByte());
     }
 
     private static void SkipFigureRest(ref PacketReader reader)

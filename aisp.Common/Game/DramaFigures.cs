@@ -32,26 +32,32 @@ public static class DramaFigures
         new() { Id = ShuffleBoxId, Name = "SHUFFLE!" },
     ];
 
-    /// <summary>The licensed dolls, dressed in their gmchara.csv outfits and named wigs.</summary>
+    /// <summary>
+    /// The licensed dolls, dressed in their gmchara.csv outfits, with their named wigs as
+    /// base hair so the dressing curtain cannot leave them bald.
+    /// </summary>
     public static IReadOnlyList<UccAdvFigure> AlwaysGranted { get; } =
     [
         Licensed(
             DcBoxId,
             "朝倉音姫モデル",
             2_012_011,
-            [10100260, 10100000, 11500040, 10500050, 10600020, 10700020, 10900000]
+            10900000,
+            [10100260, 10100000, 11500040, 10500050, 10600020, 10700020]
         ),
         Licensed(
             ClannadBoxId,
             "古河渚モデル",
             2_022_011,
-            [10100010, 10200000, 10400000, 10500040, 10600000, 10700000, 10900020]
+            10900020,
+            [10100010, 10200000, 10400000, 10500040, 10600000, 10700000]
         ),
         Licensed(
             ShuffleBoxId,
             "リシアンサスモデル",
             2_032_011,
-            [10100020, 10200010, 10500030, 10400010, 10600000, 10700000, 10000000, 10900010]
+            10900010,
+            [10100020, 10200010, 10500030, 10400010, 10600000, 10700000, 10000000]
         ),
     ];
 
@@ -91,20 +97,28 @@ public static class DramaFigures
             ? []
             : character.Inventory.Where(stack => stack.Quantity > 0).Select(stack => stack.ItemId);
 
-    private static UccAdvFigure Licensed(uint boxId, string name, uint modelId, uint[] equipment) =>
+    private static UccAdvFigure Licensed(
+        uint boxId,
+        string name,
+        uint modelId,
+        uint wig,
+        uint[] equipment
+    ) =>
         new()
         {
             FigureId = boxId,
             BoxId = boxId,
+            Gender = 2,
             Name = name,
             ModelId = modelId,
+            Hairstyle = wig,
             Equipment = equipment,
         };
 
     // Twelve dolls per box: three heights by four faces, in the order of the bag items, with
     // the box art at package_{index * 1000}.dds (the archive has package_0 to package_11000
-    // for boxes 1 and 2). The height picks the model; the face only names the doll, as the
-    // client has no field for it.
+    // for boxes 1 and 2). The height picks the model; the base hairstyle matches the
+    // package's wig. Face currently uses the default variant.
     private static List<PaidFigure> BuildPurchasable()
     {
         string[] menFaces = ["りりしい", "つり目な", "たれ目な", "クールな"];
@@ -112,19 +126,64 @@ public static class DramaFigures
         string[] heights = ["長身", "中背", "小柄"];
         uint[] menModels = [1_001_021, 1_001_011, 1_001_031];
         uint[] womenModels = [1_002_011, 1_002_021, 1_002_031];
-        uint[] menEquip = [10100220, 10200100, 10400030, 10500070, 10920010];
-        uint[] womenEquip = [10100060, 10200090, 10400000, 10500010, 10900030];
+        // The client requires underwear coverage to open the dressing curtain and
+        // accept the character: lower underwear for men, upper and lower for women.
+        uint[] menEquip = [10100220, 10200100, 10400030, 10500070, 10700030];
+        uint[] womenEquip = [10100060, 10200090, 10400000, 10500010, 10600000, 10700000];
+        // Per-package wig styles and colors, in item order.
+        uint[] menWigs =
+        [
+            10920010,
+            10920024,
+            10920041,
+            10920012,
+            10920023,
+            10920040,
+            10920014,
+            10920031,
+            10920042,
+            10920013,
+            10920030,
+            10920044,
+        ];
+        uint[] womenWigs =
+        [
+            10930010,
+            10930024,
+            10930041,
+            10930012,
+            10930023,
+            10930040,
+            10930014,
+            10930021,
+            10930042,
+            10930013,
+            10930020,
+            10930044,
+        ];
 
         var figures = new List<PaidFigure>(24);
-        AddPaid(figures, MenItemIdStart, MenBoxId, heights, menFaces, menModels, menEquip);
+        AddPaid(
+            figures,
+            MenItemIdStart,
+            MenBoxId,
+            1,
+            heights,
+            menFaces,
+            menModels,
+            menEquip,
+            menWigs
+        );
         AddPaid(
             figures,
             WomenItemIdStart,
             WomenBoxId,
+            2,
             heights,
             womenFaces,
             womenModels,
-            womenEquip
+            womenEquip,
+            womenWigs
         );
         return figures;
     }
@@ -133,10 +192,12 @@ public static class DramaFigures
         List<PaidFigure> figures,
         uint itemIdStart,
         uint boxId,
+        uint gender,
         string[] heights,
         string[] faces,
         uint[] models,
-        uint[] equipment
+        uint[] equipment,
+        uint[] wigs
     )
     {
         for (var height = 0; height < heights.Length; height++)
@@ -152,10 +213,13 @@ public static class DramaFigures
                             // A 16-bit id for the picker: the box in the high byte, the doll
                             // number in the low one.
                             FigureId = (boxId << 8) | (index + 1),
+                            IconId = itemIdStart + index,
                             BoxId = boxId,
+                            Gender = gender,
                             Name = $"{heights[height]}+{faces[face]}モデル",
                             PackageId = index * 1000,
                             ModelId = models[height],
+                            Hairstyle = wigs[index],
                             Equipment = equipment,
                         }
                     )

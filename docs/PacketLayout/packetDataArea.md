@@ -938,13 +938,13 @@ Client uses both in CAIProtoArea_vtbl__func_40 to size the trigger volume. HalfE
     UInt {Count}
     foreach figure:
         UInt {FigureId}           // the picker looks it up as a 16-bit word
-        UInt {BoxId}              // the box: picker group, folder of the logo and package art
-        Bytes(96) {Name}          // Shift-JIS, NUL-terminated
+        UInt {IconId}             // item/icon/%08d.dds
+        Bytes(96) {Name}          // UTF-8, NUL-terminated
         Byte {Owned}
-        UInt {Unused}             // +0x6C; the ingest reads its low byte
+        UInt {Gender}             // +0x6C; low byte: 1 male, 2 female
         UInt {People}             // +0x70; 1, 2 or 3, anything else counts as none
-        UInt {PackageId}          // +0x74; handed to the doll's creation with +0x78 and +0x7C
-        UInt {ModelId}            // +0x78
+        UInt {Face}               // +0x74; face variant, independent of package artwork
+        UInt {Hairstyle}          // +0x78; base hair item ID, separate from equipped wigs
         UInt {ModelId}            // +0x7C; the doll's model (in-memory +0x2c, 0x57c452)
         UInt {BoxId}              // +0x80; folder of ./interface/figure/%d/logo.dds and package_%d.dds
         UInt {PackageId}          // +0x84; the package_%d index (0, 1000, … 11000 for boxes 1 and 2)
@@ -952,6 +952,15 @@ Client uses both in CAIProtoArea_vtbl__func_40 to size the trigger volume. HalfE
         UInt {Reserved} × 30      // a second word per slot, passed along with the item id; 0
         UInt {Reserved}           // 0
 ```
+
+The client uses the explicit Gender field, rather than the model ID, to select
+its coverage rule. A value of 1 selects the male rule; other values require both
+upper and lower underwear. The figure's default equipment must include lower
+underwear (socket `0x800`) for male characters, and upper (`0x400`) plus lower
+underwear for female characters. The client checks this coverage when accepting
+a character and when opening the dressing curtain after equipment changes.
+Outer clothing alone does not satisfy the check. Base hair belongs in
+`Hairstyle`, independently of the removable equipment list.
 
 ## send_get_ucc_voice_base_list (UccVoiceBaseListRequest)
 
