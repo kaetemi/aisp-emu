@@ -159,6 +159,7 @@ public class AreaEventAccessNpcHandler(
             npc.InteractionType
             is NpcInteractionType.AdventureShopBuy
                 or NpcInteractionType.AdventureShopUpload
+                or NpcInteractionType.NiconiCommonsShop
         )
         {
             session.ActiveShopId = null;
@@ -188,6 +189,22 @@ public class AreaEventAccessNpcHandler(
                     await session.SendAsync(
                         PacketType.AdventureUploadStartedNotify,
                         new AdventureUploadStartedNotify(adventureNpcObjectId, 0).ToBytes(),
+                        ct
+                    );
+                    return;
+                case NpcInteractionType.NiconiCommonsShop:
+                    var shopName = localiser.Get(session, L.Npc.Name(npc.NpcObjectId));
+                    await session.SendAsync(
+                        PacketType.NiconiCommonsShopStartedNotify,
+                        new NiconiCommonsShopStartedNotify(
+                            adventureNpcObjectId,
+                            shopName
+                        ).ToBytes(),
+                        ct
+                    );
+                    await session.SendAsync(
+                        PacketType.NiconiCommonsShopItemNotify,
+                        NiconiCommonsShopCatalog.Snapshot().ToBytes(),
                         ct
                     );
                     return;

@@ -100,10 +100,7 @@ public class UccAdvFigurePacketTests
         Assert.Equal(1u, reader.ReadUInt());
         Assert.Equal(0u, reader.ReadUInt());
         Assert.Equal(0u, reader.ReadUInt());
-        Assert.Equal(
-            "ai sp@ce MEN",
-            reader.ReadFixedString(NiconiCommonsEntry.NameBytes, "Shift_JIS")
-        );
+        Assert.Equal("ai sp@ce MEN", reader.ReadFixedString(NiconiCommonsEntry.NameBytes));
         Assert.Equal(1, reader.ReadByte());
         Assert.Equal(0u, reader.ReadUInt());
     }
