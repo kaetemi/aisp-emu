@@ -49,6 +49,7 @@ public sealed class NiconiCommonsShopHandlersTests
             }
 
             await using var runDb = new MainContext(options);
+            await DramaTestCatalog.SeedAsync(runDb);
             var handler = new AreaEventAccessNpcHandler(
                 new NpcRepository(runDb),
                 new ShopRepository(runDb),
@@ -62,7 +63,8 @@ public sealed class NiconiCommonsShopHandlersTests
                 ),
                 new AdventureShopCatalog(new AdventureShopRepository(runDb)),
                 TestTextLocaliser.English,
-                NullLogger<AreaEventAccessNpcHandler>.Instance
+                NullLogger<AreaEventAccessNpcHandler>.Instance,
+                new aisp.Common.Game.DramaCatalog(runDb, TestTextLocaliser.English)
             );
             var session = new CapturingPlayerSession { MapId = 10990200, CharacterId = 9001 };
 
@@ -77,7 +79,7 @@ public sealed class NiconiCommonsShopHandlersTests
                 TestContext.Current.CancellationToken
             );
 
-            Assert.Null(session.ActiveShopId);
+            Assert.NotNull(session.ActiveShopId);
             Assert.Equal(
                 0u,
                 new PacketReader(
@@ -99,21 +101,15 @@ public sealed class NiconiCommonsShopHandlersTests
                 p => p.Type == PacketType.NiconiCommonsShopItemNotify
             );
             var itemReader = new PacketReader(items.Payload);
-            Assert.Equal((uint)NiconiCommonsShopCatalog.CommonsRows.Count, itemReader.ReadUInt());
-            for (var i = 0; i < NiconiCommonsShopCatalog.CommonsRows.Count; i++)
+            Assert.Equal(10u, itemReader.ReadUInt());
+            for (var i = 0; i < 10; i++)
             {
-                Assert.Equal(NiconiCommonsShopCatalog.CommonsRows[i].Type, itemReader.ReadUInt());
-                Assert.Equal(NiconiCommonsShopCatalog.CommonsRows[i].Id, itemReader.ReadUInt());
-                Assert.Equal(
-                    NiconiCommonsShopCatalog.CommonsRows[i].AiPrice,
-                    itemReader.ReadUInt()
-                );
-                Assert.Equal(
-                    NiconiCommonsShopCatalog.CommonsRows[i].NicoPrice,
-                    itemReader.ReadUInt()
-                );
+                Assert.Equal(i < 9 ? 2u : 3u, itemReader.ReadUInt());
+                Assert.Equal(i < 9 ? 32001001u + (uint)i : 42001001u, itemReader.ReadUInt());
+                Assert.Equal(100u, itemReader.ReadUInt());
+                Assert.Equal(0u, itemReader.ReadUInt());
             }
-            Assert.Equal((uint)NiconiCommonsShopCatalog.FigureRows.Count, itemReader.ReadUInt());
+            Assert.Equal(24u, itemReader.ReadUInt());
             Assert.DoesNotContain(session.Sent, p => p.Type == PacketType.ShopStartedNotify);
         }
         finally
@@ -162,16 +158,22 @@ public sealed class NiconiCommonsShopHandlersTests
             }
 
             await using var runDb = new MainContext(options);
+            await DramaTestCatalog.SeedAsync(runDb);
             var session = new CapturingPlayerSession
             {
                 User = user,
                 UserId = userId,
                 CharacterId = (uint)characterId,
+                ActiveShopId = await runDb
+                    .Shops.Where(x => x.Code == "niconi-commons")
+                    .Select(x => x.Id)
+                    .SingleAsync(TestContext.Current.CancellationToken),
             };
             var handler = new AreaNiconiCommonsShopBuyFigureHandler(
                 runDb,
                 new CharacterRepository(runDb, NullLogger<CharacterRepository>.Instance),
-                NullLogger<AreaNiconiCommonsShopBuyFigureHandler>.Instance
+                NullLogger<AreaNiconiCommonsShopBuyFigureHandler>.Instance,
+                new DramaCatalog(runDb, TestTextLocaliser.English)
             );
 
             foreach (var currency in new byte[] { 1, 2, 255 })
@@ -216,8 +218,7 @@ public sealed class NiconiCommonsShopHandlersTests
             Assert.Contains(session.Sent, p => p.Type == PacketType.MoneyUpdatedAipoint);
 
             var obtain = session.Sent.Single(p => p.Type == PacketType.UccAdvFigureObtainNotify);
-            var paid = DramaFigures.Purchasable.Single(p => p.ItemId == MenTallGallantItemId);
-            Assert.Equal(paid.Figure.FigureId, new PacketReader(obtain.Payload).ReadUInt());
+            Assert.Equal(257u, new PacketReader(obtain.Payload).ReadUInt());
 
             session.Sent.Clear();
             await handler.HandleAsync(
@@ -301,16 +302,22 @@ public sealed class NiconiCommonsShopHandlersTests
             }
 
             await using var runDb = new MainContext(options);
+            await DramaTestCatalog.SeedAsync(runDb);
             var session = new CapturingPlayerSession
             {
                 User = user,
                 UserId = userId,
                 CharacterId = (uint)characterId,
+                ActiveShopId = await runDb
+                    .Shops.Where(x => x.Code == "niconi-commons")
+                    .Select(x => x.Id)
+                    .SingleAsync(TestContext.Current.CancellationToken),
             };
             var handler = new AreaNiconiCommonsShopBuyFigureHandler(
                 runDb,
                 new CharacterRepository(runDb, NullLogger<CharacterRepository>.Instance),
-                NullLogger<AreaNiconiCommonsShopBuyFigureHandler>.Instance
+                NullLogger<AreaNiconiCommonsShopBuyFigureHandler>.Instance,
+                new DramaCatalog(runDb, TestTextLocaliser.English)
             );
 
             var payload = new PacketWriter();
@@ -386,11 +393,16 @@ public sealed class NiconiCommonsShopHandlersTests
             }
 
             await using var runDb = new MainContext(options);
+            await DramaTestCatalog.SeedAsync(runDb);
             var session = new CapturingPlayerSession
             {
                 User = user,
                 UserId = userId,
                 CharacterId = (uint)characterId,
+                ActiveShopId = await runDb
+                    .Shops.Where(x => x.Code == "niconi-commons")
+                    .Select(x => x.Id)
+                    .SingleAsync(TestContext.Current.CancellationToken),
             };
             var characters = new CharacterRepository(
                 runDb,
@@ -403,7 +415,8 @@ public sealed class NiconiCommonsShopHandlersTests
             await new AreaNiconiCommonsShopBuyCommonsHandler(
                 runDb,
                 characters,
-                NullLogger<AreaNiconiCommonsShopBuyCommonsHandler>.Instance
+                NullLogger<AreaNiconiCommonsShopBuyCommonsHandler>.Instance,
+                new DramaCatalog(runDb, TestTextLocaliser.English)
             ).HandleAsync(commonsPayload.ToBytes(), session, TestContext.Current.CancellationToken);
 
             Assert.Equal(
@@ -427,7 +440,8 @@ public sealed class NiconiCommonsShopHandlersTests
             await new AreaNiconiCommonsShopBuyVoiceHandler(
                 runDb,
                 characters,
-                NullLogger<AreaNiconiCommonsShopBuyVoiceHandler>.Instance
+                NullLogger<AreaNiconiCommonsShopBuyVoiceHandler>.Instance,
+                new DramaCatalog(runDb, TestTextLocaliser.English)
             ).HandleAsync(voicePayload.ToBytes(), session, TestContext.Current.CancellationToken);
 
             Assert.Equal(

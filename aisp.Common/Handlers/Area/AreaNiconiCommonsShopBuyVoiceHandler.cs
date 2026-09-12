@@ -10,7 +10,8 @@ namespace aisp.Common.Handlers.Area;
 public sealed class AreaNiconiCommonsShopBuyVoiceHandler(
     MainContext db,
     ICharacterRepository characters,
-    ILogger<AreaNiconiCommonsShopBuyVoiceHandler> logger
+    ILogger<AreaNiconiCommonsShopBuyVoiceHandler> logger,
+    DramaCatalog catalog
 ) : IPacketHandler, IRequiresAuthenticatedSession
 {
     public PacketType RequestType => PacketType.NiconiCommonsShopBuyVoiceRequest;
@@ -24,8 +25,8 @@ public sealed class AreaNiconiCommonsShopBuyVoiceHandler(
     )
     {
         var request = NiconiCommonsShopBuyVoiceRequest.FromBytes(payload.Span);
-        var row = NiconiCommonsShopCatalog.VoiceRows.FirstOrDefault(row => row.Id == request.Id);
-        if (row is null)
+        var product = await catalog.FindOfferAsync(session.ActiveShopId, 1, request.Id, ct);
+        if (product is null)
         {
             logger.LogWarning(
                 "NiconiCommonsShopBuyVoice unknown id {Id} from character {CharacterId}",
@@ -40,10 +41,9 @@ public sealed class AreaNiconiCommonsShopBuyVoiceHandler(
             !await NiconiCommonsShopPurchase.TryChargeAndGrantBagItemAsync(
                 db,
                 session,
-                row,
+                product.Offer,
                 request.Extra,
-                NiconiCommonsShopCatalog.VoiceBagItemId(request.Id),
-                NiconiCommonsShopCatalog.VoiceName(request.Id),
+                product.ItemId,
                 ct
             )
         )

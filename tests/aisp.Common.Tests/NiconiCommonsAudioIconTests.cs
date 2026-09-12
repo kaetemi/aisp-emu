@@ -1,5 +1,6 @@
 using aisp.Common.DAL;
 using aisp.Common.DAL.Repositories;
+using aisp.Common.Game;
 using aisp.Common.Handlers.Area;
 using aisp.Common.Tests.Support;
 using aisp.Network;
@@ -15,10 +16,12 @@ public class NiconiCommonsAudioIconTests
         var (connection, options) = TestDb.CreateInMemoryMainContext();
         await using var connectionLifetime = connection;
         await using var db = new MainContext(options);
+        await DramaTestCatalog.SeedAsync(db);
+        var catalog = new DramaCatalog(db, TestTextLocaliser.English);
         var characters = new CharacterRepository(db, NullLogger<CharacterRepository>.Instance);
         var session = new CapturingPlayerSession();
         var ct = TestContext.Current.CancellationToken;
-        await new AreaNiconiCommonsBaseListHandler(characters).HandleAsync(
+        await new AreaNiconiCommonsBaseListHandler(characters, catalog).HandleAsync(
             ReadOnlyMemory<byte>.Empty,
             session,
             ct
@@ -36,7 +39,7 @@ public class NiconiCommonsAudioIconTests
         }
 
         session.Sent.Clear();
-        await new AreaUccVoiceBaseListHandler(characters).HandleAsync(
+        await new AreaUccVoiceBaseListHandler(characters, catalog).HandleAsync(
             ReadOnlyMemory<byte>.Empty,
             session,
             ct

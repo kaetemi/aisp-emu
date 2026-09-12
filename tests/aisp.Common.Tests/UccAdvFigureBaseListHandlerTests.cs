@@ -21,9 +21,11 @@ public class UccAdvFigureBaseListHandlerTests
         {
             await TestDb.SeedCharacterAsync(options, 7001, TestContext.Current.CancellationToken);
             await using var db = new MainContext(options);
+            await DramaTestCatalog.SeedAsync(db);
             var session = new CapturingPlayerSession { CharacterId = 7001 };
             var handler = new AreaUccAdvFigureBaseListHandler(
-                new CharacterRepository(db, NullLogger<CharacterRepository>.Instance)
+                new CharacterRepository(db, NullLogger<CharacterRepository>.Instance),
+                new DramaCatalog(db, TestTextLocaliser.English)
             );
 
             await handler.HandleAsync(
@@ -36,12 +38,9 @@ public class UccAdvFigureBaseListHandlerTests
             Assert.Equal(PacketType.UccAdvFigureBaseListResponse, sent.Type);
             var reader = new PacketReader(sent.Payload);
             Assert.Equal(0u, reader.ReadUInt());
-            Assert.Equal((uint)DramaFigures.AlwaysGranted.Count + 24, reader.ReadUInt());
-            Assert.Equal(DramaFigures.DcBoxId, reader.ReadUInt());
-            Assert.Equal(
-                8 + (DramaFigures.AlwaysGranted.Count + 24) * UccAdvFigure.WireSize,
-                sent.Payload.Length
-            );
+            Assert.Equal(27u, reader.ReadUInt());
+            Assert.Equal(1000u, reader.ReadUInt());
+            Assert.Equal(8 + (27) * UccAdvFigure.WireSize, sent.Payload.Length);
             AssertShopProbe(sent.Payload, owned: false);
             AssertPaidFigureVisuals(sent.Payload);
         }
@@ -80,9 +79,11 @@ public class UccAdvFigureBaseListHandlerTests
             }
 
             await using var verify = new MainContext(options);
+            await DramaTestCatalog.SeedAsync(verify);
             var session = new CapturingPlayerSession { CharacterId = 7002 };
             await new AreaUccAdvFigureBaseListHandler(
-                new CharacterRepository(verify, NullLogger<CharacterRepository>.Instance)
+                new CharacterRepository(verify, NullLogger<CharacterRepository>.Instance),
+                new DramaCatalog(verify, TestTextLocaliser.English)
             ).HandleAsync(
                 ReadOnlyMemory<byte>.Empty,
                 session,
@@ -92,14 +93,14 @@ public class UccAdvFigureBaseListHandlerTests
             var reader = new PacketReader(Assert.Single(session.Sent).Payload);
             Assert.Equal(0u, reader.ReadUInt());
             Assert.Equal(27u, reader.ReadUInt());
-            Assert.Equal(DramaFigures.DcBoxId, reader.ReadUInt());
+            Assert.Equal(1000u, reader.ReadUInt());
             SkipFigureRest(ref reader);
-            Assert.Equal(DramaFigures.ClannadBoxId, reader.ReadUInt());
+            Assert.Equal(1001u, reader.ReadUInt());
             SkipFigureRest(ref reader);
-            Assert.Equal(DramaFigures.ShuffleBoxId, reader.ReadUInt());
+            Assert.Equal(1002u, reader.ReadUInt());
             SkipFigureRest(ref reader);
-            Assert.Equal((DramaFigures.MenBoxId << 8) | 1u, reader.ReadUInt());
-            Assert.Equal(DramaFigures.MenItemIdStart, reader.ReadUInt());
+            Assert.Equal((1u << 8) | 1u, reader.ReadUInt());
+            Assert.Equal(14100000u, reader.ReadUInt());
             AssertShopProbe(Assert.Single(session.Sent).Payload, owned: true);
         }
         finally
@@ -137,9 +138,11 @@ public class UccAdvFigureBaseListHandlerTests
             }
 
             await using var verify = new MainContext(options);
+            await DramaTestCatalog.SeedAsync(verify);
             var session = new CapturingPlayerSession { CharacterId = 7003 };
             await new AreaUccAdvFigureBaseListHandler(
-                new CharacterRepository(verify, NullLogger<CharacterRepository>.Instance)
+                new CharacterRepository(verify, NullLogger<CharacterRepository>.Instance),
+                new DramaCatalog(verify, TestTextLocaliser.English)
             ).HandleAsync(
                 ReadOnlyMemory<byte>.Empty,
                 session,
@@ -158,28 +161,34 @@ public class UccAdvFigureBaseListHandlerTests
     }
 
     [Fact]
-    public void OwnedBy_matches_purchasable_item_ids()
+    public async Task Ownership_uses_catalog_item_mappings()
     {
-        Assert.Equal(24, DramaFigures.Purchasable.Count);
-        Assert.Equal(14100000u, DramaFigures.Purchasable[0].ItemId);
-        Assert.True(DramaFigures.Purchasable[0].Figure.FigureId <= 0xFFFF);
-        Assert.Equal(0u, DramaFigures.Purchasable[0].Figure.PackageId);
-        Assert.Equal(14200011u, DramaFigures.Purchasable[^1].ItemId);
-        Assert.Equal(11000u, DramaFigures.Purchasable[^1].Figure.PackageId);
-
-        var owned = DramaFigures.OwnedBy([14100000, 14200004, 10100220]);
-        Assert.Equal(5, owned.Count);
-        Assert.Contains(owned, figure => figure.FigureId == ((DramaFigures.MenBoxId << 8) | 1u));
-        Assert.Contains(owned, figure => figure.FigureId == ((DramaFigures.WomenBoxId << 8) | 5u));
-
-        var emptyTitles = DramaFigures.TitlesOwnedBy([]);
-        Assert.Equal(3, emptyTitles.Count);
-        Assert.DoesNotContain(emptyTitles, title => title.Id == DramaFigures.MenBoxId);
-        Assert.Contains(emptyTitles, title => title.Id == DramaFigures.DcBoxId);
-
-        var menTitles = DramaFigures.TitlesOwnedBy([14100000]);
-        Assert.Equal(4, menTitles.Count);
-        Assert.Contains(menTitles, title => title.Id == DramaFigures.MenBoxId);
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        await using var lifetime = connection;
+        await using var db = new MainContext(options);
+        await DramaTestCatalog.SeedAsync(db);
+        var catalog = new DramaCatalog(db, TestTextLocaliser.English);
+        var character = new Character();
+        character.Inventory.Add(new CharacterInventory { ItemId = 14100000, Quantity = 1 });
+        character.Inventory.Add(new CharacterInventory { ItemId = 14200004, Quantity = 1 });
+        character.Inventory.Add(new CharacterInventory { ItemId = 10100220, Quantity = 1 });
+        var session = new CapturingPlayerSession();
+        var figures = await catalog.FiguresAsync(
+            character,
+            session,
+            TestContext.Current.CancellationToken
+        );
+        Assert.Equal(27, figures.Count);
+        Assert.Equal(5, figures.Count(x => x.Owned));
+        Assert.Contains(figures, x => x.FigureId == 257 && x.Owned);
+        Assert.Contains(figures, x => x.FigureId == 517 && x.Owned);
+        var titles = await catalog.CommonsAsync(
+            null,
+            session,
+            TestContext.Current.CancellationToken
+        );
+        Assert.DoesNotContain(titles, x => x.Id == 1);
+        Assert.Contains(titles, x => x.Id == 1000);
     }
 
     private static void AssertPaidFigureVisuals(ReadOnlySpan<byte> payload)
@@ -250,7 +259,7 @@ public class UccAdvFigureBaseListHandlerTests
     {
         var reader = new PacketReader(payload[^(24 * UccAdvFigure.WireSize)..]);
         Assert.Equal(0x101u, reader.ReadUInt());
-        Assert.Equal(DramaFigures.MenItemIdStart, reader.ReadUInt());
+        Assert.Equal(14100000u, reader.ReadUInt());
         reader.ReadBytes(UccAdvFigure.NameBytes);
         Assert.Equal(owned ? (byte)1 : (byte)0, reader.ReadByte());
     }

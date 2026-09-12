@@ -10,7 +10,8 @@ namespace aisp.Common.Handlers.Area;
 public sealed class AreaNiconiCommonsShopBuyFigureHandler(
     MainContext db,
     ICharacterRepository characters,
-    ILogger<AreaNiconiCommonsShopBuyFigureHandler> logger
+    ILogger<AreaNiconiCommonsShopBuyFigureHandler> logger,
+    DramaCatalog catalog
 ) : IPacketHandler, IRequiresAuthenticatedSession
 {
     public PacketType RequestType => PacketType.NiconiCommonsShopBuyFigureRequest;
@@ -24,11 +25,8 @@ public sealed class AreaNiconiCommonsShopBuyFigureHandler(
     )
     {
         var request = NiconiCommonsShopBuyFigureRequest.FromBytes(payload.Span);
-        var row = NiconiCommonsShopCatalog.FigureRows.FirstOrDefault(row =>
-            row.Id == request.FigureId
-        );
-        var paid = NiconiCommonsShopCatalog.PaidFigureForShopId(request.FigureId);
-        if (row is null || paid is null)
+        var product = await catalog.FindOfferAsync(session.ActiveShopId, 0, request.FigureId, ct);
+        if (product is null)
         {
             logger.LogWarning(
                 "NiconiCommonsShopBuyFigure unknown id {Id} from character {CharacterId}",
@@ -43,10 +41,9 @@ public sealed class AreaNiconiCommonsShopBuyFigureHandler(
             !await NiconiCommonsShopPurchase.TryChargeAndGrantBagItemAsync(
                 db,
                 session,
-                row,
+                product.Offer,
                 request.Extra,
-                checked((int)paid.ItemId),
-                paid.Figure.Name,
+                product.ItemId,
                 ct
             )
         )

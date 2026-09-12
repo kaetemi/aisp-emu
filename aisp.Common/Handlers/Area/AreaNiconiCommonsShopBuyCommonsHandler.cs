@@ -10,7 +10,8 @@ namespace aisp.Common.Handlers.Area;
 public sealed class AreaNiconiCommonsShopBuyCommonsHandler(
     MainContext db,
     ICharacterRepository characters,
-    ILogger<AreaNiconiCommonsShopBuyCommonsHandler> logger
+    ILogger<AreaNiconiCommonsShopBuyCommonsHandler> logger,
+    DramaCatalog catalog
 ) : IPacketHandler, IRequiresAuthenticatedSession
 {
     public PacketType RequestType => PacketType.NiconiCommonsShopBuyCommonsRequest;
@@ -24,8 +25,10 @@ public sealed class AreaNiconiCommonsShopBuyCommonsHandler(
     )
     {
         var request = NiconiCommonsShopBuyCommonsRequest.FromBytes(payload.Span);
-        var row = NiconiCommonsShopCatalog.CommonsRows.FirstOrDefault(row => row.Id == request.Id);
-        if (row is null)
+        var product =
+            await catalog.FindOfferAsync(session.ActiveShopId, 2, request.Id, ct)
+            ?? await catalog.FindOfferAsync(session.ActiveShopId, 3, request.Id, ct);
+        if (product is null)
         {
             logger.LogWarning(
                 "NiconiCommonsShopBuyCommons unknown id {Id} from character {CharacterId}",
@@ -40,10 +43,9 @@ public sealed class AreaNiconiCommonsShopBuyCommonsHandler(
             !await NiconiCommonsShopPurchase.TryChargeAndGrantBagItemAsync(
                 db,
                 session,
-                row,
+                product.Offer,
                 request.Extra,
-                NiconiCommonsShopCatalog.CommonsBagItemId(request.Id),
-                NiconiCommonsShopCatalog.CommonsName(request.Id),
+                product.ItemId,
                 ct
             )
         )

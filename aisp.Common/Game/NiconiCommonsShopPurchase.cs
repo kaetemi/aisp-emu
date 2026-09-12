@@ -30,7 +30,6 @@ internal static class NiconiCommonsShopPurchase
         NiconiCommonsShopItemRecord row,
         byte currency,
         int bagItemId,
-        string itemName,
         CancellationToken ct
     )
     {
@@ -55,14 +54,7 @@ internal static class NiconiCommonsShopPurchase
             return false;
 
         if (!await db.Items.AnyAsync(i => i.Id == bagItemId, ct))
-            db.Items.Add(
-                new Item
-                {
-                    Id = bagItemId,
-                    Name = itemName,
-                    IconId = checked((int)NiconiCommonsShopCatalog.IconIdFor(row)),
-                }
-            );
+            return false;
 
         if (stack is null)
             db.CharacterInventories.Add(

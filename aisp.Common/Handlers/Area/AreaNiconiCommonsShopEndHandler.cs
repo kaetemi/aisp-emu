@@ -20,6 +20,7 @@ public sealed class AreaNiconiCommonsShopEndHandler : IPacketHandler, IRequiresA
         CancellationToken ct = default
     )
     {
+        session.ActiveShopId = null;
         await session.SendAsync(ResponseType, new NiconiCommonsShopEndResponse().ToBytes(), ct);
         await session.SendAsync(
             PacketType.NiconiCommonsShopEndedNotify,

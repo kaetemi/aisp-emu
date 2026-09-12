@@ -16,7 +16,8 @@ public class AreaEventAccessNpcHandler(
     ServerScriptDispatcher serverScriptDispatcher,
     AdventureShopCatalog adventureShopCatalog,
     ITextLocaliser localiser,
-    ILogger<AreaEventAccessNpcHandler> logger
+    ILogger<AreaEventAccessNpcHandler> logger,
+    DramaCatalog dramaCatalog
 ) : IPacketHandler, IRequiresAuthenticatedSession
 {
     public PacketType RequestType => PacketType.EventAccessNpcRequest;
@@ -163,6 +164,14 @@ public class AreaEventAccessNpcHandler(
         )
         {
             session.ActiveShopId = null;
+            if (
+                npc.InteractionType == NpcInteractionType.NiconiCommonsShop
+                && (npc.ShopId is null || npc.Shop is null || !npc.Shop.IsEnabled)
+            )
+            {
+                await session.SendAsync(ResponseType, new EventAccessNpcResponse(1).ToBytes(), ct);
+                return;
+            }
             var adventureNpcObjectId = checked((uint)npc.NpcObjectId);
             await session.SendAsync(ResponseType, new EventAccessNpcResponse(0).ToBytes(), ct);
             await session.SendAsync(
@@ -193,7 +202,8 @@ public class AreaEventAccessNpcHandler(
                     );
                     return;
                 case NpcInteractionType.NiconiCommonsShop:
-                    var shopName = localiser.Get(session, L.Npc.Name(npc.NpcObjectId));
+                    session.ActiveShopId = npc.ShopId;
+                    var shopName = localiser.Get(session, L.Shop.DisplayName(npc.Shop!.Code));
                     await session.SendAsync(
                         PacketType.NiconiCommonsShopStartedNotify,
                         new NiconiCommonsShopStartedNotify(
@@ -204,7 +214,7 @@ public class AreaEventAccessNpcHandler(
                     );
                     await session.SendAsync(
                         PacketType.NiconiCommonsShopItemNotify,
-                        NiconiCommonsShopCatalog.Snapshot().ToBytes(),
+                        (await dramaCatalog.SnapshotAsync(npc.ShopId!.Value, ct)).ToBytes(),
                         ct
                     );
                     return;
