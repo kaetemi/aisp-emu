@@ -2,6 +2,7 @@ using System.Text.Json;
 using aisp.Common.DAL;
 using aisp.Common.DAL.Entities;
 using aisp.Common.Localisation;
+using aisp.Network;
 using aisp.Network.Data;
 using aisp.Network.Packets.Area;
 using Microsoft.EntityFrameworkCore;
@@ -126,6 +127,58 @@ public sealed class DramaCatalog(MainContext db, ITextLocaliser localiser)
                 )
             ))
             .ToArray();
+    }
+
+    public async Task RefreshOwnershipForItemsAsync(
+        IPlayerSession session,
+        int[] itemIds,
+        CancellationToken ct
+    )
+    {
+        if (itemIds.Length == 0)
+            return;
+        var figuresChanged = await db.DramaFigures.AnyAsync(
+            x => x.ItemId != null && itemIds.Contains(x.ItemId.Value),
+            ct
+        );
+        var audioKinds = await db
+            .DramaAudio.Where(x => itemIds.Contains(x.ItemId))
+            .Select(x => x.Kind)
+            .Distinct()
+            .ToListAsync(ct);
+        if (!figuresChanged && audioKinds.Count == 0)
+            return;
+
+        // Bag notifications do not update the client's drama registries. Refresh them when ownership changes.
+        var character = await db
+            .Characters.AsNoTracking()
+            .Include(x => x.Inventory)
+            .SingleOrDefaultAsync(x => x.Id == session.CharacterId, ct);
+        if (figuresChanged)
+            await session.SendAsync(
+                PacketType.UccAdvFigureBaseListResponse,
+                new UccAdvFigureBaseListResponse(
+                    0,
+                    await FiguresAsync(character, session, ct)
+                ).ToBytes(),
+                ct
+            );
+        // Figure ownership also controls the available figure boxes in the Commons registry.
+        if (figuresChanged || audioKinds.Any(x => x is 2 or 3))
+            await session.SendAsync(
+                PacketType.NiconiCommonsBaseListResponse,
+                new NiconiCommonsBaseListResponse(
+                    0,
+                    await CommonsAsync(character, session, ct)
+                ).ToBytes(),
+                ct
+            );
+        if (audioKinds.Contains(1))
+            await session.SendAsync(
+                PacketType.UccVoiceBaseListResponse,
+                new UccVoiceBaseListResponse(await VoicesAsync(character, session, ct)).ToBytes(),
+                ct
+            );
     }
 
     private IQueryable<ShopItem> EnabledShopItems(int shopId) =>

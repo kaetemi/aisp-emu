@@ -80,6 +80,14 @@ public sealed class NiconiCommonsShopHandlersTests
             );
 
             Assert.NotNull(session.ActiveShopId);
+            Assert.DoesNotContain(
+                session.Sent,
+                x =>
+                    x.Type
+                        is PacketType.UccAdvFigureBaseListResponse
+                            or PacketType.NiconiCommonsBaseListResponse
+                            or PacketType.UccVoiceBaseListResponse
+            );
             Assert.Equal(
                 0u,
                 new PacketReader(
