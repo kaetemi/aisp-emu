@@ -52,8 +52,8 @@ public class AiPowerDataTests
         Assert.Equal(AiPowerDataNotify.HeaderSize + AiPowerCardData.WireSize, bytes.Length);
 
         var reader = new PacketReader(bytes);
-        Assert.Equal(1u, reader.ReadUInt());
         Assert.Equal(0u, reader.ReadUInt());
+        Assert.Equal(1u, reader.ReadUInt());
         var parsed = AiPowerCardData.FromBytes(reader.ReadBytes(AiPowerCardData.WireSize));
         Assert.Equal("One", parsed.Name);
     }
