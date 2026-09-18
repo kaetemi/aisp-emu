@@ -1,5 +1,11 @@
 namespace aisp.Network.Data;
 
+/// <summary>
+/// Hit-point block. 2011 VCE logs <c>hitpoint=</c> / <c>hitpoint_max=</c> and
+/// <c>heart=</c> / <c>heart_max=</c> on <c>recv_notify_update_hitpoint</c> /
+/// <c>recv_notify_update_heart</c>. Same 18-byte layout in the July 2009
+/// <c>CharaData</c> blob. Not TPS-specific; 2009 has no TPS UI.
+/// </summary>
 public sealed class HitPointData
 {
     public const int WireSize = 18;
@@ -38,12 +44,19 @@ public sealed class HitPointData
     }
 }
 
+/// <summary>
+/// 16-byte gauge. 2011 <c>recv_notify_update_stamina</c> logs <c>gauge=</c> then
+/// <c>speed=</c> for the two floats. <see cref="Speed"/> is that second float
+/// (previously misnamed recovery-rate).
+/// </summary>
 public sealed class StaminaData
 {
     public const int WireSize = 16;
 
     public float Current { get; set; }
-    public float RecoveryRate { get; set; }
+
+    /// <summary>2011 VCE field <c>speed=</c>. Function in 2009 is unproven.</summary>
+    public float Speed { get; set; }
     public uint CostReductionBonus { get; set; }
     public uint CostReductionPenalty { get; set; }
 
@@ -51,7 +64,7 @@ public sealed class StaminaData
     {
         var writer = new PacketWriter();
         writer.Write(Current);
-        writer.Write(RecoveryRate);
+        writer.Write(Speed);
         writer.Write(CostReductionBonus);
         writer.Write(CostReductionPenalty);
         return writer.ToBytes();
@@ -63,13 +76,18 @@ public sealed class StaminaData
         return new StaminaData
         {
             Current = reader.ReadFloat(),
-            RecoveryRate = reader.ReadFloat(),
+            Speed = reader.ReadFloat(),
             CostReductionBonus = reader.ReadUInt(),
             CostReductionPenalty = reader.ReadUInt(),
         };
     }
 }
 
+/// <summary>
+/// 16-byte gauge (four uints). 2011 protocol name is <c>tank</c>
+/// (<c>recv_notify_update_tank</c> logs <c>amount=</c>; TPS HUD has
+/// <c>CTankGauge</c>). 2009 has the same block and live tank recvs, without TPS UI.
+/// </summary>
 public sealed class TankData
 {
     public const int WireSize = 16;
@@ -103,8 +121,8 @@ public sealed class TankData
 }
 
 /// <summary>
-/// Five TPS battle-ability values. The update packets address these by an
-/// ability index in the range 0-4.
+/// Five uints. 2011 <c>recv_notify_update_battle_ability</c> logs <c>ability</c> +
+/// <c>value=</c> with an index 0–4. Not TPS-exclusive.
 /// </summary>
 public sealed class BattleAbilityValues
 {
@@ -163,21 +181,33 @@ public sealed class CosplayProgressData
 }
 
 /// <summary>
-/// Complete 155-byte TPS combat state read by the July 2009 client's
-/// <c>0x719510</c>. The 2011 layout added a fourth ability-modifier group (20 extra bytes).
-/// <see cref="AbilityModifierType2"/> is kept in memory and in the Robo DB, but is not on the wire.
+/// Nested vitality / parameter / progression record on every <see cref="CharaData"/>
+/// (avatars and robos). July 2009 wire size is 155 bytes (parser <c>0x719510</c>):
+/// three ability groups of five uints. 2011 added a fourth group (+20 bytes) when TPS
+/// landed; that group is <see cref="AbilityGroup2"/>, kept in memory and in the Robo DB
+/// but omitted from this branch's wire.
+///
+/// This is not TPS state. TPS (2011-only <c>tps::</c> UI and
+/// <c>recv_event_get_tps_mode</c> / <c>recv_notify_tps_use_item_*</c>) displays these
+/// stats. The protocol names are <c>hitpoint</c>, <c>heart</c>, <c>stamina</c>
+/// (<c>gauge</c>/<c>speed</c>), <c>tank</c>, <c>ability</c>, <c>cosplay</c>.
+/// <c>recv_aipower_data</c> is a different 0x4C0-byte record, not this blob.
+/// See <c>docs/CharacterBattleData.md</c>.
 /// </summary>
-public sealed class TpsBattleData
+public sealed class CharaBattleData
 {
     public const int WireSize = 155;
+    public const int WireAbilityGroupCount = 3;
 
     public HitPointData HitPoints { get; set; } = new();
     public StaminaData Stamina { get; set; } = new();
     public TankData Tank { get; set; } = new();
     public BattleAbilityValues BaseAbilities { get; set; } = new();
-    public BattleAbilityValues AbilityModifierType0 { get; set; } = new();
-    public BattleAbilityValues AbilityModifierType1 { get; set; } = new();
-    public BattleAbilityValues AbilityModifierType2 { get; set; } = new();
+    public BattleAbilityValues AbilityGroup0 { get; set; } = new();
+    public BattleAbilityValues AbilityGroup1 { get; set; } = new();
+
+    /// <summary>2011-only fourth group. Not written or read on the July 2009 wire.</summary>
+    public BattleAbilityValues AbilityGroup2 { get; set; } = new();
     public ulong StatusEffectFlags { get; set; }
     public uint ActionFlags { get; set; }
     public uint ActiveSkillId { get; set; }
@@ -190,8 +220,8 @@ public sealed class TpsBattleData
         writer.Write(Stamina.ToBytes());
         writer.Write(Tank.ToBytes());
         writer.Write(BaseAbilities.ToBytes());
-        writer.Write(AbilityModifierType0.ToBytes());
-        writer.Write(AbilityModifierType1.ToBytes());
+        writer.Write(AbilityGroup0.ToBytes());
+        writer.Write(AbilityGroup1.ToBytes());
         writer.Write(StatusEffectFlags);
         writer.Write(ActionFlags);
         writer.Write(ActiveSkillId);
@@ -199,16 +229,16 @@ public sealed class TpsBattleData
         return writer.ToBytes();
     }
 
-    public static TpsBattleData FromBytes(ReadOnlySpan<byte> data)
+    public static CharaBattleData FromBytes(ReadOnlySpan<byte> data)
     {
         if (data.Length < WireSize)
             throw new ArgumentException(
-                $"TpsBattleData requires at least {WireSize} bytes.",
+                $"CharaBattleData requires at least {WireSize} bytes.",
                 nameof(data)
             );
 
         var reader = new PacketReader(data);
-        return new TpsBattleData
+        return new CharaBattleData
         {
             HitPoints = HitPointData.FromBytes(reader.ReadBytes(HitPointData.WireSize)),
             Stamina = StaminaData.FromBytes(reader.ReadBytes(StaminaData.WireSize)),
@@ -216,10 +246,10 @@ public sealed class TpsBattleData
             BaseAbilities = BattleAbilityValues.FromBytes(
                 reader.ReadBytes(BattleAbilityValues.WireSize)
             ),
-            AbilityModifierType0 = BattleAbilityValues.FromBytes(
+            AbilityGroup0 = BattleAbilityValues.FromBytes(
                 reader.ReadBytes(BattleAbilityValues.WireSize)
             ),
-            AbilityModifierType1 = BattleAbilityValues.FromBytes(
+            AbilityGroup1 = BattleAbilityValues.FromBytes(
                 reader.ReadBytes(BattleAbilityValues.WireSize)
             ),
             StatusEffectFlags = reader.ReadULong(),

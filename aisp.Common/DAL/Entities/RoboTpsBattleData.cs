@@ -1,5 +1,11 @@
 namespace aisp.Common.DAL.Entities;
 
+/// <summary>
+/// Persistent copy of the nested <c>CharaData</c> battle record (hitpoint, stamina,
+/// tank, ability groups, cosplay) plus the unlabeled action-reference floats that
+/// sit on <c>CharaData</c> itself. Table name <c>RoboTpsBattleData</c> is historical:
+/// this is not 2011 TPS mode state. See <c>docs/CharacterBattleData.md</c>.
+/// </summary>
 public sealed class RoboTpsBattleData
 {
     public int CharacterId { get; set; }
@@ -20,6 +26,8 @@ public sealed class RoboTpsBattleData
     public byte MaximumHearts { get; set; }
 
     public float StaminaCurrent { get; set; }
+
+    /// <summary>Maps to wire <c>StaminaData.Speed</c> (2011 VCE <c>speed=</c>). Column name is historical.</summary>
     public float StaminaRecoveryRate { get; set; }
     public uint StaminaCostReductionBonus { get; set; }
     public uint StaminaCostReductionPenalty { get; set; }

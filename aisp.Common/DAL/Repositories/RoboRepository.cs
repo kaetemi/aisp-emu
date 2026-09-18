@@ -512,9 +512,9 @@ public sealed class RoboRepository(MainContext db) : IRoboRepository
             );
 
         ValidateAbilityValues(robo.Character.Battle.BaseAbilities);
-        ValidateAbilityValues(robo.Character.Battle.AbilityModifierType0);
-        ValidateAbilityValues(robo.Character.Battle.AbilityModifierType1);
-        ValidateAbilityValues(robo.Character.Battle.AbilityModifierType2);
+        ValidateAbilityValues(robo.Character.Battle.AbilityGroup0);
+        ValidateAbilityValues(robo.Character.Battle.AbilityGroup1);
+        ValidateAbilityValues(robo.Character.Battle.AbilityGroup2);
     }
 
     private static void ValidateAbilityValues(BattleAbilityValues abilities)
@@ -552,11 +552,11 @@ public sealed class RoboRepository(MainContext db) : IRoboRepository
 
         entity.NamePlate = character.NamePlate;
 
-        tpsBattleData.ActionReferenceX = character.TpsActionReferenceX;
-        tpsBattleData.ActionReferenceY = character.TpsActionReferenceY;
-        tpsBattleData.ActionProfileId = character.TpsActionProfileId;
+        tpsBattleData.ActionReferenceX = character.ActionReferenceX;
+        tpsBattleData.ActionReferenceY = character.ActionReferenceY;
+        tpsBattleData.ActionProfileId = character.ActionProfileId;
         tpsBattleData.CollisionRadius = character.CollisionRadius;
-        tpsBattleData.ActionVerticalRange = character.TpsActionVerticalRange;
+        tpsBattleData.ActionVerticalRange = character.ActionVerticalRange;
 
         tpsBattleData.HitPointsCurrent = hitPoints.Current;
         tpsBattleData.HitPointsBaseMaximum = hitPoints.BaseMaximum;
@@ -565,7 +565,7 @@ public sealed class RoboRepository(MainContext db) : IRoboRepository
         tpsBattleData.CurrentHearts = hitPoints.CurrentHearts;
         tpsBattleData.MaximumHearts = hitPoints.MaximumHearts;
         tpsBattleData.StaminaCurrent = stamina.Current;
-        tpsBattleData.StaminaRecoveryRate = stamina.RecoveryRate;
+        tpsBattleData.StaminaRecoveryRate = stamina.Speed;
         tpsBattleData.StaminaCostReductionBonus = stamina.CostReductionBonus;
         tpsBattleData.StaminaCostReductionPenalty = stamina.CostReductionPenalty;
         tpsBattleData.TankCurrent = tank.Current;
@@ -649,7 +649,7 @@ public sealed class RoboRepository(MainContext db) : IRoboRepository
 
     private static void SynchronizeBattleAbilities(
         RoboTpsBattleData tpsBattleData,
-        TpsBattleData battle
+        CharaBattleData battle
     )
     {
         SynchronizeBattleAbilitySet(
@@ -660,17 +660,17 @@ public sealed class RoboRepository(MainContext db) : IRoboRepository
         SynchronizeBattleAbilitySet(
             tpsBattleData,
             RoboBattleAbilitySet.ModifierType0,
-            battle.AbilityModifierType0.Values
+            battle.AbilityGroup0.Values
         );
         SynchronizeBattleAbilitySet(
             tpsBattleData,
             RoboBattleAbilitySet.ModifierType1,
-            battle.AbilityModifierType1.Values
+            battle.AbilityGroup1.Values
         );
         SynchronizeBattleAbilitySet(
             tpsBattleData,
             RoboBattleAbilitySet.ModifierType2,
-            battle.AbilityModifierType2.Values
+            battle.AbilityGroup2.Values
         );
     }
 
@@ -745,13 +745,13 @@ public sealed class RoboRepository(MainContext db) : IRoboRepository
                 entity.Hairstyle
             ),
             CharacterParameterId = entity.ParameterId,
-            TpsActionReferenceX = tpsBattleData.ActionReferenceX,
-            TpsActionReferenceY = tpsBattleData.ActionReferenceY,
+            ActionReferenceX = tpsBattleData.ActionReferenceX,
+            ActionReferenceY = tpsBattleData.ActionReferenceY,
             NamePlate = entity.NamePlate,
-            TpsActionProfileId = tpsBattleData.ActionProfileId,
+            ActionProfileId = tpsBattleData.ActionProfileId,
             CollisionRadius = tpsBattleData.CollisionRadius,
-            TpsActionVerticalRange = tpsBattleData.ActionVerticalRange,
-            Battle = new TpsBattleData
+            ActionVerticalRange = tpsBattleData.ActionVerticalRange,
+            Battle = new CharaBattleData
             {
                 HitPoints = new HitPointData
                 {
@@ -765,7 +765,7 @@ public sealed class RoboRepository(MainContext db) : IRoboRepository
                 Stamina = new StaminaData
                 {
                     Current = tpsBattleData.StaminaCurrent,
-                    RecoveryRate = tpsBattleData.StaminaRecoveryRate,
+                    Speed = tpsBattleData.StaminaRecoveryRate,
                     CostReductionBonus = tpsBattleData.StaminaCostReductionBonus,
                     CostReductionPenalty = tpsBattleData.StaminaCostReductionPenalty,
                 },
@@ -777,15 +777,15 @@ public sealed class RoboRepository(MainContext db) : IRoboRepository
                     MaximumPenalty = tpsBattleData.TankMaximumPenalty,
                 },
                 BaseAbilities = ToBattleAbilityValues(tpsBattleData, RoboBattleAbilitySet.Base),
-                AbilityModifierType0 = ToBattleAbilityValues(
+                AbilityGroup0 = ToBattleAbilityValues(
                     tpsBattleData,
                     RoboBattleAbilitySet.ModifierType0
                 ),
-                AbilityModifierType1 = ToBattleAbilityValues(
+                AbilityGroup1 = ToBattleAbilityValues(
                     tpsBattleData,
                     RoboBattleAbilitySet.ModifierType1
                 ),
-                AbilityModifierType2 = ToBattleAbilityValues(
+                AbilityGroup2 = ToBattleAbilityValues(
                     tpsBattleData,
                     RoboBattleAbilitySet.ModifierType2
                 ),
@@ -885,7 +885,7 @@ public sealed class RoboRepository(MainContext db) : IRoboRepository
                 $"{entity.DistributedStatusPoints.Count} distributed status-point rows"
             );
         if (entity.TpsBattleData is null)
-            throw InvalidStoredData(entity, "no TPS battle-data row");
+            throw InvalidStoredData(entity, "no battle-data row");
 
         var validSets = Enum.GetValues<RoboBattleAbilitySet>();
         var expectedAbilityCount = validSets.Length * BattleAbilityValues.Count;

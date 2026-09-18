@@ -308,7 +308,7 @@ public class MainContext(DbContextOptions<MainContext> options) : DbContext(opti
 
         b.Entity<RoboTpsBattleData>(e =>
         {
-            e.ToTable("RoboTpsBattleData");
+            e.ToTable("RoboTpsBattleData"); // historical name; stores CharaBattleData, not 2011 TPS mode
             e.HasKey(x => new { x.CharacterId, x.RoboId });
         });
 

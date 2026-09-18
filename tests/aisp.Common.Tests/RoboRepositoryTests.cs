@@ -78,6 +78,9 @@ public class RoboRepositoryTests
             Assert.Equal([1u, 2u, 3u, 4u, 5u], loaded.DistributedStatusPoints);
             Assert.Equal(9001u, loaded.ItemUseEffects[0].ItemDefinitionId);
             Assert.Equal("Online", loaded.UserStatus.StatusText);
+            Assert.Equal(29.5f, loaded.Character.Battle.Stamina.Speed);
+            Assert.Equal([50u, 51u, 52u, 53u, 54u], loaded.Character.Battle.AbilityGroup0.Values);
+            Assert.Equal([70u, 71u, 72u, 73u, 74u], loaded.Character.Battle.AbilityGroup2.Values);
         }
         finally
         {
@@ -345,13 +348,13 @@ public class RoboRepositoryTests
                 RouteState = 14,
                 Movement = new MovementData(15.5f, 16.5f, 17.5f, 180, MovementType.Running),
             },
-            TpsActionReferenceX = 18.5f,
-            TpsActionReferenceY = 19.5f,
+            ActionReferenceX = 18.5f,
+            ActionReferenceY = 19.5f,
             NamePlate = 44,
-            TpsActionProfileId = 21,
+            ActionProfileId = 21,
             CollisionRadius = 22.5f,
-            TpsActionVerticalRange = 23.5f,
-            Battle = new TpsBattleData
+            ActionVerticalRange = 23.5f,
+            Battle = new CharaBattleData
             {
                 HitPoints = new HitPointData
                 {
@@ -365,7 +368,7 @@ public class RoboRepositoryTests
                 Stamina = new StaminaData
                 {
                     Current = 28.5f,
-                    RecoveryRate = 29.5f,
+                    Speed = 29.5f,
                     CostReductionBonus = 30,
                     CostReductionPenalty = 31,
                 },
@@ -377,9 +380,9 @@ public class RoboRepositoryTests
                     MaximumPenalty = 35,
                 },
                 BaseAbilities = AbilityValues(40),
-                AbilityModifierType0 = AbilityValues(50),
-                AbilityModifierType1 = AbilityValues(60),
-                AbilityModifierType2 = AbilityValues(70),
+                AbilityGroup0 = AbilityValues(50),
+                AbilityGroup1 = AbilityValues(60),
+                AbilityGroup2 = AbilityValues(70),
                 StatusEffectFlags = ulong.MaxValue,
                 ActionFlags = 81,
                 ActiveSkillId = 82,

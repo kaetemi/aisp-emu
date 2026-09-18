@@ -46,6 +46,10 @@ public sealed class Robo
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
+    /// <summary>
+    /// Persistent battle record. Navigation and table keep the historical TPS name so
+    /// existing SQLite files load; the wire type is <c>CharaBattleData</c>.
+    /// </summary>
     public RoboTpsBattleData TpsBattleData { get; set; } = default!;
     public ICollection<RoboEquipment> Equipment { get; set; } = [];
     public ICollection<RoboItemUseEffect> ItemUseEffects { get; set; } = [];

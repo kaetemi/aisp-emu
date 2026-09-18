@@ -1,7 +1,7 @@
 namespace aisp.Network.Data;
 
 /// <summary>
-/// Level and experience state read by the client's <c>sub_798B10</c>.
+/// Level and experience state. July 2009 parser <c>0x7192d0</c> (2011 <c>sub_798B10</c>).
 /// The same layout is used for normal character and cosplay progression.
 /// </summary>
 public sealed class LevelProgressData

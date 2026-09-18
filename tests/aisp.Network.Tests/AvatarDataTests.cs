@@ -19,14 +19,14 @@ public class AvatarDataTests
                 RouteState = 77,
                 Movement = new MovementData(1.25f, 2.5f, 3.75f, 8, MovementType.Running),
             },
-            TpsActionReferenceX = 4.25f,
-            TpsActionReferenceY = 5.5f,
+            ActionReferenceX = 4.25f,
+            ActionReferenceY = 5.5f,
             ClientReserved = 88,
             NamePlate = 99,
-            TpsActionProfileId = 111,
+            ActionProfileId = 111,
             CollisionRadius = 12.5f,
-            TpsActionVerticalRange = 13.5f,
-            Battle = new TpsBattleData
+            ActionVerticalRange = 13.5f,
+            Battle = new CharaBattleData
             {
                 HitPoints = new HitPointData
                 {
@@ -40,7 +40,7 @@ public class AvatarDataTests
                 Stamina = new StaminaData
                 {
                     Current = 14.5f,
-                    RecoveryRate = 1.5f,
+                    Speed = 1.5f,
                     CostReductionBonus = 6,
                     CostReductionPenalty = 2,
                 },
@@ -52,9 +52,9 @@ public class AvatarDataTests
                     MaximumPenalty = 3,
                 },
                 BaseAbilities = new BattleAbilityValues { Values = [1, 2, 3, 4, 5] },
-                AbilityModifierType0 = new BattleAbilityValues { Values = [6, 7, 8, 9, 10] },
-                AbilityModifierType1 = new BattleAbilityValues { Values = [11, 12, 13, 14, 15] },
-                AbilityModifierType2 = new BattleAbilityValues { Values = [16, 17, 18, 19, 20] },
+                AbilityGroup0 = new BattleAbilityValues { Values = [6, 7, 8, 9, 10] },
+                AbilityGroup1 = new BattleAbilityValues { Values = [11, 12, 13, 14, 15] },
+                AbilityGroup2 = new BattleAbilityValues { Values = [16, 17, 18, 19, 20] },
                 StatusEffectFlags = 0x1122334455667788,
                 ActionFlags = 0x99AABBCC,
                 ActiveSkillId = 1234,
@@ -122,11 +122,19 @@ public class AvatarDataTests
         var parsed = AvatarData.FromBytes(bytes);
         Assert.Equal(123u, parsed.AvatarId);
         Assert.Equal(55u, parsed.Character.Map.MapId);
+        Assert.Equal(4.25f, parsed.Character.ActionReferenceX);
+        Assert.Equal(5.5f, parsed.Character.ActionReferenceY);
         Assert.Equal(99u, parsed.Character.NamePlate);
+        Assert.Equal(111u, parsed.Character.ActionProfileId);
+        Assert.Equal(13.5f, parsed.Character.ActionVerticalRange);
         Assert.Equal(100u, parsed.Character.Battle.HitPoints.Current);
         Assert.Equal(14.5f, parsed.Character.Battle.Stamina.Current);
+        Assert.Equal(1.5f, parsed.Character.Battle.Stamina.Speed);
         Assert.Equal(30u, parsed.Character.Battle.Tank.Current);
         Assert.Equal([1u, 2u, 3u, 4u, 5u], parsed.Character.Battle.BaseAbilities.Values);
+        Assert.Equal([6u, 7u, 8u, 9u, 10u], parsed.Character.Battle.AbilityGroup0.Values);
+        Assert.Equal([11u, 12u, 13u, 14u, 15u], parsed.Character.Battle.AbilityGroup1.Values);
+        Assert.Equal([0u, 0u, 0u, 0u, 0u], parsed.Character.Battle.AbilityGroup2.Values);
         Assert.Equal(0x1122334455667788ul, parsed.Character.Battle.StatusEffectFlags);
         Assert.Equal(1234u, parsed.Character.Battle.ActiveSkillId);
         Assert.Equal(4321u, parsed.Character.Battle.Cosplay.CosplayId);
@@ -136,5 +144,29 @@ public class AvatarDataTests
         Assert.Equal(7u, parsed.ItemUseEffects[0].EffectType);
         Assert.Equal([301u, 302u, 303u, 304u, 305u], parsed.ItemUseEffects[0].Parameters);
         Assert.Equal(5678u, parsed.EmotionId);
+    }
+
+    [Fact]
+    public void CharaBattleData_july2009_wire_is_155_bytes_and_omits_ability_group_2()
+    {
+        var battle = new CharaBattleData
+        {
+            BaseAbilities = new BattleAbilityValues { Values = [1, 2, 3, 4, 5] },
+            AbilityGroup0 = new BattleAbilityValues { Values = [6, 7, 8, 9, 10] },
+            AbilityGroup1 = new BattleAbilityValues { Values = [11, 12, 13, 14, 15] },
+            AbilityGroup2 = new BattleAbilityValues { Values = [16, 17, 18, 19, 20] },
+        };
+
+        var bytes = battle.ToBytes();
+        Assert.Equal(155, CharaBattleData.WireSize);
+        Assert.Equal(3, CharaBattleData.WireAbilityGroupCount);
+        Assert.Equal(CharaBattleData.WireSize, bytes.Length);
+        Assert.Equal(546, CharaData.WireSize);
+
+        var parsed = CharaBattleData.FromBytes(bytes);
+        Assert.Equal([1u, 2u, 3u, 4u, 5u], parsed.BaseAbilities.Values);
+        Assert.Equal([6u, 7u, 8u, 9u, 10u], parsed.AbilityGroup0.Values);
+        Assert.Equal([11u, 12u, 13u, 14u, 15u], parsed.AbilityGroup1.Values);
+        Assert.Equal([0u, 0u, 0u, 0u, 0u], parsed.AbilityGroup2.Values);
     }
 }

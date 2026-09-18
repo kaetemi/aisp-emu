@@ -1,8 +1,9 @@
 namespace aisp.Network.Packets.Area;
 
 /// <summary>
-/// Client response to recv_event_get_tps_mode. Result is 1 while TPS mode is
-/// active and 0 otherwise.
+/// 2011-only client response to <c>recv_event_get_tps_mode</c>. Result is 1 while
+/// TPS mode is active and 0 otherwise. Opcode <c>0xC290</c> is absent from the
+/// July 2009 exe.
 /// </summary>
 public sealed class EventGetTpsModeRequest(uint result) : IIncomingPacket<EventGetTpsModeRequest>
 {

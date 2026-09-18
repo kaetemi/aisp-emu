@@ -13,6 +13,7 @@ aisp-emu/
 ├── .github/workflows/                   # CI, format check, Docker publish, deploy
 ├── docs/                                # Reverse-engineering notes & packet references
 │   ├── PacketLayout/                    #  Packet notes by domain
+│   ├── CharacterBattleData.md           # Nested CharaData battle record vs 2011 TPS mode
 │   ├── aisp-decompiled.c                # Decompiled original client code
 │   ├── aisp-decompiled-packet-llm-guide.md
 │   └── *.frida.js                       # Frida instrumentation scripts

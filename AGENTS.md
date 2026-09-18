@@ -136,7 +136,7 @@ The generic base class `PacketHandlerBase<TRequest, TResponse>` deserializes the
 
 ## Docs
 
-See `docs/Project-Layout.md` for a deeper architecture walkthrough and `docs/Encryption.md` / `docs/PacketLayout/` for packet-level details.
+See `docs/Project-Layout.md` for a deeper architecture walkthrough, `docs/Encryption.md` / `docs/PacketLayout/` for packet-level details, and `docs/CharacterBattleData.md` for the nested `CharaData` battle record versus 2011-only TPS mode.
 
 ## Decompiled client reference (`localDocs/aisp-decompiled.c`)
 
