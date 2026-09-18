@@ -1181,8 +1181,8 @@ public class CmdExecHandler(
 
     /// <summary>
     /// /gacha [dPrice] [pPrice] [visual] pushes <c>recv_gacha_started</c> so
-    /// <c>CGachaWindow</c> opens. Visual is <c>./interface/package/%08d.dds</c>
-    /// (default 100000 = MoonScape). Tops up デレ so お金投入 can arm the crank.
+    /// <c>CGachaWindow</c> opens. Visual is <c>./interface/package/%08d.dds</c>.
+    /// Omitted visual picks a random catalog splash (MoonScape / seasonal / DC店 / furniture).
     /// </summary>
     private async Task HandleGachaCommandAsync(
         IPlayerSession session,
@@ -1202,18 +1202,19 @@ public class CmdExecHandler(
 
         var aiPrice = GachaTestSession.DefaultAiPrice;
         var nicoPrice = 0ul;
-        var visualId = GachaTestSession.DefaultVisualId;
+        uint? explicitVisual = null;
         if (args.Count > 0 && ulong.TryParse(args[0], out var parsedAi))
             aiPrice = parsedAi;
         if (args.Count > 1 && ulong.TryParse(args[1], out var parsedNico))
             nicoPrice = parsedNico;
         if (args.Count > 2 && uint.TryParse(args[2], out var parsedVisual) && parsedVisual > 0)
-            visualId = parsedVisual;
+            explicitVisual = parsedVisual;
 
+        var visualId = GachaTestSession.PickVisual(explicitVisual);
         GachaTestSession.AiPrice = aiPrice;
         GachaTestSession.NicoPrice = nicoPrice;
         GachaTestSession.VisualId = visualId;
-        GachaTestSession.PrizeItemId = GachaTestSession.DefaultPrizeItemId;
+        GachaTestSession.PrizeItemId = GachaTestSession.PickPrize();
 
         var userId = session.User?.Id ?? session.UserId;
         var user = areaClient.User ?? session.User;

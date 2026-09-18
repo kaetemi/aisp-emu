@@ -82,6 +82,25 @@ public class GachaAndBoardPacketTests
     }
 
     [Fact]
+    public void GachaTicketExchangeItemAddRequest_ReadsSerialAndNum()
+    {
+        var writer = new PacketWriter();
+        writer.Write(10100220u);
+        writer.Write((ushort)3);
+        var parsed = GachaTicketExchangeItemAddRequest.FromBytes(writer.ToBytes());
+        Assert.Equal(10100220u, parsed.SerialId);
+        Assert.Equal((ushort)3, parsed.Num);
+    }
+
+    [Fact]
+    public void GachaTicketExchangeItemAddResponse_WritesResult()
+    {
+        var payload = new GachaTicketExchangeItemAddResponse(0).ToBytes();
+        Assert.Equal(4, payload.Length);
+        Assert.Equal(0u, GachaTicketExchangeItemAddResponse.FromBytes(payload).Result);
+    }
+
+    [Fact]
     public void GachaEndedNotify_IsEmpty()
     {
         Assert.Empty(new GachaEndedNotify().ToBytes());

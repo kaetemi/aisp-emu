@@ -122,3 +122,53 @@ public sealed class AreaGachaTicketExchangeCloseHandler
         CancellationToken ct = default
     ) => Task.CompletedTask;
 }
+
+public sealed class AreaGachaTicketExchangeItemAddHandler(ILogger<AreaGachaTicketExchangeItemAddHandler> logger)
+    : IPacketHandler,
+        IRequiresAuthenticatedSession
+{
+    public PacketType RequestType => PacketType.GachaTicketExchangeItemAddRequest;
+    public PacketType ResponseType => PacketType.GachaTicketExchangeItemAddResponse;
+    public ServerType ServerType => ServerType.Area;
+
+    public async Task HandleAsync(
+        ReadOnlyMemory<byte> payload,
+        IPlayerSession session,
+        CancellationToken ct = default
+    )
+    {
+        var request = GachaTicketExchangeItemAddRequest.FromBytes(payload.Span);
+        logger.LogInformation(
+            "GachaTicket add from character {CharacterId} serial={Serial} num={Num}",
+            session.CharacterId,
+            request.SerialId,
+            request.Num
+        );
+        await session.SendAsync(ResponseType, new GachaTicketExchangeItemAddResponse(0).ToBytes(), ct);
+    }
+}
+
+public sealed class AreaGachaTicketExchangeItemDelHandler(ILogger<AreaGachaTicketExchangeItemDelHandler> logger)
+    : IPacketHandler,
+        IRequiresAuthenticatedSession
+{
+    public PacketType RequestType => PacketType.GachaTicketExchangeItemDelRequest;
+    public PacketType ResponseType => PacketType.GachaTicketExchangeItemDelResponse;
+    public ServerType ServerType => ServerType.Area;
+
+    public async Task HandleAsync(
+        ReadOnlyMemory<byte> payload,
+        IPlayerSession session,
+        CancellationToken ct = default
+    )
+    {
+        var request = GachaTicketExchangeItemDelRequest.FromBytes(payload.Span);
+        logger.LogInformation(
+            "GachaTicket del from character {CharacterId} serial={Serial} num={Num}",
+            session.CharacterId,
+            request.SerialId,
+            request.Num
+        );
+        await session.SendAsync(ResponseType, new GachaTicketExchangeItemDelResponse(0).ToBytes(), ct);
+    }
+}

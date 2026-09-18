@@ -2826,7 +2826,7 @@ public enum PacketType : ushort
         PacketServerType.Area,
         PacketDirection.ServerToClient,
         "recv_gachaticket_exchange_item_add_r",
-        ImplementationState.NotImplemented
+        ImplementationState.Implemented
     )]
     GachaTicketExchangeItemAddResponse = 0x7F77,
 
@@ -2834,7 +2834,7 @@ public enum PacketType : ushort
         PacketServerType.Area,
         PacketDirection.ServerToClient,
         "recv_gachaticket_exchange_item_del_r",
-        ImplementationState.NotImplemented
+        ImplementationState.Implemented
     )]
     GachaTicketExchangeItemDelResponse = 0xC6DA,
 
@@ -5181,6 +5181,22 @@ public enum PacketType : ushort
         ImplementationState.Implemented
     )]
     GachaTicketExchangeCloseRequest = 0x953B,
+
+    [PacketMetadata(
+        PacketServerType.Area,
+        PacketDirection.ClientToServer,
+        "send_gachaticket_exchange_item_add",
+        ImplementationState.Implemented
+    )]
+    GachaTicketExchangeItemAddRequest = 0x45BD,
+
+    [PacketMetadata(
+        PacketServerType.Area,
+        PacketDirection.ClientToServer,
+        "send_gachaticket_exchange_item_del",
+        ImplementationState.Implemented
+    )]
+    GachaTicketExchangeItemDelRequest = 0x3E26,
 
     [PacketMetadata(
         PacketServerType.Area,

@@ -1978,7 +1978,7 @@ public class CmdExecHandlerTests
                 "gacha-user"
             );
             await handler.HandleAsync(
-                BuildCmdExecPayload("/gacha", "250", "10"),
+                BuildCmdExecPayload("/gacha", "250", "10", "100004"),
                 msgSession,
                 TestContext.Current.CancellationToken
             );
@@ -1988,14 +1988,44 @@ public class CmdExecHandlerTests
             );
             var parsed = GachaStartedNotify.FromBytes(notify.Payload);
             Assert.Equal("aiぽん", parsed.Name);
-            Assert.Equal(GachaTestSession.DefaultVisualId, parsed.VisualId);
+            Assert.Equal(100004u, parsed.VisualId);
             Assert.Equal(250ul, parsed.AiPoint);
             Assert.Equal(10ul, parsed.NicoPoint);
-            Assert.Equal(GachaTestSession.DefaultVisualId, GachaTestSession.VisualId);
+            Assert.Equal(100004u, GachaTestSession.VisualId);
             Assert.Contains(
                 areaSession.Sent,
                 packet => packet.Type == PacketType.MoneyUpdatedAipoint
             );
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task GachaCommand_WithoutVisual_PicksACatalogSplash()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var (msgSession, areaSession, handler) = await CreateAreaCommandHarness(
+                options,
+                8038,
+                "gacha-rand"
+            );
+            await handler.HandleAsync(
+                BuildCmdExecPayload("/gacha"),
+                msgSession,
+                TestContext.Current.CancellationToken
+            );
+            var notify = Assert.Single(
+                areaSession.Sent,
+                packet => packet.Type == PacketType.GachaStartedNotify
+            );
+            var parsed = GachaStartedNotify.FromBytes(notify.Payload);
+            Assert.Contains(GachaTestSession.Catalog, row => row.VisualId == parsed.VisualId);
+            Assert.Contains(GachaTestSession.PrizePool, id => id == parsed.ItemSerialId);
         }
         finally
         {
