@@ -22,7 +22,7 @@ The DistId → chat-filter mapper is not.
 
 2009 inverse `0x41fe00` type 5 → DistId `-6`. Sending MOTD / `SystemNotice` as DistId `-5` (the 2011 value) is treated as public chat from `FromId=0`. The 2009 UI then aborts at `0x42642d` (`call eax` of vfunc `+0x168`, exception `40000015` / `STATUS_FATAL_APP_EXIT`, fault module `ai sp@ce.exe`).
 
-`SystemNotice.DistId` on this branch is therefore `-6`. Message cap is still `MaxLineBytes` 360 plus CRLF inside the `0x181` buffer.
+`SystemNotice.DistId` on this branch is `-6`. Each source paragraph is its own notify (a 372-byte 9-rule MOTD aborted even after DistId was corrected). **Wine 2026-09-18:** DistId `-6` and `-7` both still abort at HUD load when MOTD is enabled. Keep `Motd__Enabled=false` on the July 2009 prefix until the notice UI path is fully reversed. Map change with the 98-byte `NotifyChangeMap` is verified (`/tp 10990200` → UDX, `MapEnterRequest` for 10990200, no RST).
 
 ## `recv_notify_change_map` (`0xB315`)
 
