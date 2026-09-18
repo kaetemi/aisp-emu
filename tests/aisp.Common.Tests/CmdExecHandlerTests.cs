@@ -1715,7 +1715,7 @@ public class CmdExecHandlerTests
     }
 
     [Fact]
-    public async Task AiPowerCommand_SendsOneCardNamedAfterTheCharacter()
+    public async Task AiPowerCommand_SendsOneCatalogCardWithPortraitAndBalloon()
     {
         var (connection, options) = TestDb.CreateInMemoryMainContext();
 
@@ -1754,7 +1754,15 @@ public class CmdExecHandlerTests
             );
             var parsed = AiPowerDataNotify.FromBytes(notify.Payload);
             var card = Assert.Single(parsed.Cards);
-            Assert.Equal("Kaetemi", card.Name);
+            Assert.Equal(AiPowerCardData.VisualKomari, card.Id);
+            Assert.Equal("月島小恋", card.Name);
+            Assert.Equal(80, card.Param0);
+            Assert.Equal(45, card.Param1);
+            Assert.Equal(
+                ["158cm", "45kg", "82-56-84", "あいすぺーす", "早起き"],
+                card.ProfileFields
+            );
+            Assert.Contains("<BR>", card.BalloonText);
             Assert.Equal(
                 AiPowerDataNotify.HeaderSize + AiPowerCardData.WireSize,
                 notify.Payload.Length

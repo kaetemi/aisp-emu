@@ -45,6 +45,20 @@ public class AiPowerDataTests
     }
 
     [Fact]
+    public void Card_BalloonText_IsUtf8CStringInTheTail()
+    {
+        var card = new AiPowerCardData { Id = AiPowerCardData.VisualKomari };
+        card.SetBalloon("えへへ<BR>応援してね");
+
+        var parsed = AiPowerCardData.FromBytes(card.ToBytes());
+        Assert.Equal("えへへ<BR>応援してね", parsed.BalloonText);
+        Assert.Equal(
+            0,
+            parsed.Trailing[System.Text.Encoding.UTF8.GetByteCount(parsed.BalloonText)]
+        );
+    }
+
+    [Fact]
     public void Notify_WritesCountThenCards()
     {
         var card = new AiPowerCardData { Id = 1, Name = "One" };

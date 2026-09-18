@@ -953,6 +953,7 @@ public class CmdExecHandler(
     /// <summary>
     /// /aipower pushes <c>recv_aipower_data</c> so the July 2009 client opens
     /// <c>CAipowerWindow</c>. Optional count 0–300 (default 1); <c>empty</c> sends no cards.
+    /// Cards cycle the three <c>aipower/%05d.dds</c> portraits (10000–10002).
     /// </summary>
     private async Task HandleAiPowerCommandAsync(
         IPlayerSession session,
@@ -981,25 +982,9 @@ public class CmdExecHandler(
         }
 
         count = Math.Min(count, AiPowerDataNotify.MaxCount);
-        var name = areaClient.Character?.Name;
-        if (string.IsNullOrWhiteSpace(name))
-            name = "AIパワー";
-
         var cards = new AiPowerCardData[count];
         for (var i = 0; i < cards.Length; i++)
-        {
-            var index = i + 1;
-            cards[i] = new AiPowerCardData
-            {
-                Id = (ushort)index,
-                Name = cards.Length == 1 ? name : $"{name} {index}",
-                Caption = "開発中",
-                Param0 = 3,
-                Param1 = 6,
-                Param2 = 0,
-                ProfileFields = ["好きなもの", "あいすぺーす", "嫌いなもの", "未設定", "自己紹介"],
-            };
-        }
+            cards[i] = CreateAiPowerCatalogCard(i, (int)count);
 
         await areaClient.SendAsync(
             PacketType.AiPowerDataNotify,
@@ -1011,6 +996,56 @@ public class CmdExecHandler(
             count,
             areaClient.CharacterId
         );
+    }
+
+    private static readonly (
+        ushort Id,
+        string Name,
+        string Balloon,
+        ushort Upper,
+        ushort Lower
+    )[] AiPowerCatalog =
+    [
+        (
+            AiPowerCardData.VisualKomari,
+            "月島小恋",
+            "えへへ、来てくれたんだ<BR>今日もがんばるね<BR>応援、よろしく！",
+            80,
+            45
+        ),
+        (
+            AiPowerCardData.VisualNanaka,
+            "白河ななか",
+            "なーなかだよ！<BR>一緒に遊ぼ？<BR>ねっ、ねっ！",
+            100,
+            70
+        ),
+        (
+            AiPowerCardData.VisualYume,
+            "朝倉由夢",
+            "ふふ、どうしたの？<BR>わたしでよければ<BR>ちからになるよ",
+            55,
+            30
+        ),
+    ];
+
+    private static AiPowerCardData CreateAiPowerCatalogCard(int index, int count)
+    {
+        var entry = AiPowerCatalog[index % AiPowerCatalog.Length];
+        var name =
+            count == 1 || index < AiPowerCatalog.Length ? entry.Name : $"{entry.Name} {index + 1}";
+        var card = new AiPowerCardData
+        {
+            Id = entry.Id,
+            Name = name,
+            Caption = "開発中",
+            Param0 = entry.Upper,
+            Param1 = entry.Lower,
+            Param2 = 12,
+            ProfileFields = ["158cm", "45kg", "82-56-84", "あいすぺーす", "早起き"],
+        };
+        card.SetBalloon(entry.Balloon);
+        return card;
     }
 
     private IPlayerSession? ResolveAreaClient(IPlayerSession msgSession)
