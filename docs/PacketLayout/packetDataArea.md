@@ -584,10 +584,10 @@ Client uses both in CAIProtoArea_vtbl__func_40 to size the trigger volume. HalfE
 - **Direction:** ServerToClient
 - **Packet ID (hex):** 0xB315
 - **Packet ID (int):** 45845
-- **Packet Size:** 99
+- **Packet Size:** 98 (July 2009). 2011 is 99.
 - **Description:** Server-driven area transition packet. After the client triggers `send_enter_map`, the server resolves the touched link and sends this route payload with the real destination map, spawn point, server info, and fade flag.
 
-**Layout (decompiled-backed):**
+**Layout (July 2009, parser `0x738f8d`):**
 
 ```text
     UInt  {ChannelId}
@@ -599,11 +599,12 @@ Client uses both in CAIProtoArea_vtbl__func_40 to size the trigger volume. HalfE
     Float {SpawnZ}
     SByte {Rotation}
     Byte  {Animation}
-    Byte  {Flag}
+    Byte  {FadeFlag}
     UShort {AreaServerPort}
     Ascii[65] {AreaServerIp}
-    Byte  {FadeFlag}
 ```
+
+2011 inserts a Flag byte after Animation and moves FadeFlag after ServerInfo (99 bytes). The 2009 client exact-size-consumes 98 bytes; the extra 2011 byte resets Area to the login screen. See `docs/July2009Wire.md`.
 
 ## recv_notify_change_map_failed (NotifyChangeMapFailed)
 

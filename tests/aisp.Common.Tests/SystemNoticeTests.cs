@@ -7,6 +7,14 @@ namespace aisp.Common.Tests;
 public class SystemNoticeTests
 {
     [Fact]
+    public void DistId_IsJuly2009SystemNoticeFilter()
+    {
+        // 2009 0x41fd90: DistId -6 → filter type 5. DistId -5 is type 0 (public chat).
+        Assert.Equal(unchecked((uint)-6), SystemNotice.DistId);
+        Assert.NotEqual(unchecked((uint)-5), SystemNotice.DistId);
+    }
+
+    [Fact]
     public void Messages_KeepEveryMessageUnderTheClientLimit()
     {
         var usage =

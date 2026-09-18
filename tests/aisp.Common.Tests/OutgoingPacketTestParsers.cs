@@ -19,10 +19,9 @@ internal static class OutgoingPacketTestParsers
         var positionZ = reader.ReadFloat();
         var rotation = YawEncoding.FromWireSByte(reader.ReadSByte());
         var animation = reader.ReadByte();
-        var flag = reader.ReadByte();
+        var fadeFlag = reader.ReadByte();
         var port = reader.ReadUShort();
         var ip = reader.ReadFixedString(65, "ASCII");
-        var fadeFlag = reader.ReadByte();
 
         return new NotifyChangeMap
         {
@@ -35,7 +34,6 @@ internal static class OutgoingPacketTestParsers
             PositionZ = positionZ,
             Rotation = rotation,
             Animation = animation,
-            Flag = flag,
             AreaServerInfo = new ServerInfo(ip, port),
             FadeFlag = fadeFlag,
         };

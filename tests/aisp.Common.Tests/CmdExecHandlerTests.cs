@@ -610,7 +610,7 @@ public class CmdExecHandlerTests
                 areaSession.Sent,
                 packet => packet.Type == PacketType.NotifyChangeMyRoom
             );
-            var roomOffset = NotifyChangeMap.PacketSize - 1;
+            var roomOffset = NotifyChangeMyRoom.RoomFieldOffset;
             var reader = new PacketReader(notify.Payload.AsSpan(roomOffset, 75));
             Assert.Equal(9001u, reader.ReadUInt());
             Assert.Equal(8102u, reader.ReadUInt());
@@ -671,7 +671,7 @@ public class CmdExecHandlerTests
             );
             var noticeReader = new PacketReader(notice.Payload);
             Assert.Equal(0u, noticeReader.ReadUInt());
-            Assert.Equal(unchecked((uint)-5), noticeReader.ReadUInt());
+            Assert.Equal(SystemNotice.DistId, noticeReader.ReadUInt());
             Assert.Contains(
                 "default room",
                 noticeReader.ReadString("utf-8"),
@@ -852,7 +852,7 @@ public class CmdExecHandlerTests
             );
             var reader = new PacketReader(notice.Payload);
             Assert.Equal(0u, reader.ReadUInt());
-            Assert.Equal(unchecked((uint)-5), reader.ReadUInt());
+            Assert.Equal(SystemNotice.DistId, reader.ReadUInt());
             Assert.Contains("Private", reader.ReadString("utf-8"), StringComparison.Ordinal);
         }
         finally
@@ -930,7 +930,7 @@ public class CmdExecHandlerTests
             );
             var reader = new PacketReader(notice.Payload);
             Assert.Equal(0u, reader.ReadUInt());
-            Assert.Equal(unchecked((uint)-5), reader.ReadUInt());
+            Assert.Equal(SystemNotice.DistId, reader.ReadUInt());
             Assert.Contains("does not exist", reader.ReadString("utf-8"), StringComparison.Ordinal);
         }
         finally
@@ -1012,7 +1012,7 @@ public class CmdExecHandlerTests
             );
             var reader = new PacketReader(notice.Payload);
             Assert.Equal(0u, reader.ReadUInt());
-            Assert.Equal(unchecked((uint)-5), reader.ReadUInt());
+            Assert.Equal(SystemNotice.DistId, reader.ReadUInt());
             Assert.Contains(
                 "Invalid room ID",
                 reader.ReadString("utf-8"),
@@ -2084,7 +2084,7 @@ public class CmdExecHandlerTests
             );
             var reader = new PacketReader(message.Payload);
             Assert.Equal(0u, reader.ReadUInt());
-            Assert.Equal(unchecked((uint)-5), reader.ReadUInt());
+            Assert.Equal(SystemNotice.DistId, reader.ReadUInt());
             var text = reader.ReadString("utf-8");
             Assert.Equal(0u, reader.ReadUInt());
             Assert.Contains("Char: 8002", text);

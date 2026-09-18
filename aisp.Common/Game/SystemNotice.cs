@@ -6,8 +6,15 @@ namespace aisp.Common.Game;
 
 public static class SystemNotice
 {
-    // DistID -5 is the client "System" / Notice chat filter (see sub_428B10 / sub_428BB0).
-    public const uint DistId = unchecked((uint)-5);
+    /// <summary>
+    /// DistId for the System / Notice chat filter on the July 2009 client.
+    /// 2009 <c>0x41fd90</c> maps DistId -6 → filter type 5 (inverse <c>0x41fe26</c> returns -6).
+    /// DistId -5 is a hole in that table (type 0, same as public chat); MOTD sent as -5 is
+    /// rendered as a FromId=0 public balloon and aborts in the 2009 UI at <c>0x42642d</c>
+    /// (<c>STATUS_FATAL_APP_EXIT</c>). 2011 remapped the same filter type onto DistId -5
+    /// (<c>sub_428B10</c>).
+    /// </summary>
+    public const uint DistId = unchecked((uint)-6);
 
     /// <summary>
     /// The client's recv_talk_forward reads the message into a char[0x181]: it scans the first

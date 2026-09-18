@@ -14,6 +14,7 @@ aisp-emu/
 ├── docs/                                # Reverse-engineering notes & packet references
 │   ├── PacketLayout/                    #  Packet notes by domain
 │   ├── CharacterBattleData.md           # Nested CharaData battle record vs 2011 TPS mode
+│   ├── July2009Wire.md                  # DistId -6 system notice; 98-byte NotifyChangeMap
 │   ├── aisp-decompiled.c                # Decompiled original client code
 │   ├── aisp-decompiled-packet-llm-guide.md
 │   └── *.frida.js                       # Frida instrumentation scripts

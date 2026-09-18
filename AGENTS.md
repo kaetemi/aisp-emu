@@ -138,6 +138,10 @@ The generic base class `PacketHandlerBase<TRequest, TResponse>` deserializes the
 
 See `docs/Project-Layout.md` for a deeper architecture walkthrough, `docs/Encryption.md` / `docs/PacketLayout/` for packet-level details, and `docs/CharacterBattleData.md` for the nested `CharaData` battle record versus 2011-only TPS mode.
 
+## July 2009 wire (this branch)
+
+See `docs/July2009Wire.md`. `SystemNotice.DistId` is **-6** (2009 System / Notice filter; 2011 uses -5). `NotifyChangeMap` is **98** bytes (FadeFlag before ServerInfo, no Flag byte). Sending the 2011 values crashes the 2009 client (`0x42642d` abort) or kicks maplinks to login.
+
 ## Decompiled client reference (`localDocs/aisp-decompiled.c`)
 
 The 27 MB / 925k-line Hex-Rays decompile is the primary source for packet opcodes, field layouts, and client-side protocol logic. See `localDocs/aisp-decompiled-packet-llm-guide.md` for search strategies.

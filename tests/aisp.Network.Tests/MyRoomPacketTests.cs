@@ -271,7 +271,8 @@ public class MyRoomPacketTests
         Assert.Equal(67, server.ToBytes().Length);
         Assert.Equal(75, room.ToBytes().Length);
         Assert.Equal(154, channelResponse.ToBytes().Length);
-        Assert.Equal(174, changeNotify.ToBytes().Length);
+        Assert.Equal(NotifyChangeMyRoom.RoomFieldOffset + 75, changeNotify.ToBytes().Length);
+        Assert.Equal(1, changeNotify.ToBytes()[NotifyChangeMap.RouteWireSize]);
         Assert.Equal(
             MyRoomFurnitureData.WireSize,
             new MyRoomNotifyFurniture(new MyRoomFurnitureData(42, 1, 0, 7001, 1, 2, 3, 4, 5, 1))

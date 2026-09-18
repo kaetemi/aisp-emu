@@ -542,7 +542,14 @@ public sealed class DirectMapLinkTransitionService(
 
         if (!needsTransition)
         {
-            await RelocateWithinAreaAsync(session, target.X, target.Y, target.Z, target.Rotation, ct);
+            await RelocateWithinAreaAsync(
+                session,
+                target.X,
+                target.Y,
+                target.Z,
+                target.Rotation,
+                ct
+            );
             return true;
         }
 
@@ -957,7 +964,7 @@ public sealed class DirectMapLinkTransitionService(
             PositionZ = spawnZ,
             Rotation = spawnRotation,
             Animation = (byte)MovementType.Stopped,
-            // Decompiled transition handling checks bit 0x2 on both flag bytes.
+            // 2011 checks bit 0x2 on Flag and FadeFlag; 2009 has no Flag byte on the wire.
             Flag = 0,
             AreaServerInfo = areaServerInfo,
             FadeFlag = 0,

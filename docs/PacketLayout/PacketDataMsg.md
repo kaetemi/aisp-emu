@@ -337,6 +337,25 @@
     UInt {BalloonID}
 ```
 
+## recv_talk_forward (TalkForwardNotify)
+
+- **Server:** Msg
+- **Direction:** ServerToClient
+- **Packet ID (hex):** 0x20F6
+- **Packet Size:** Variable (4 + 4 + CString + 4)
+- **Description:** Forwarded chat / system notice. 2009 parser `0x753287` reads the message into `char[0x181]` then BalloonId. Exact-size consume.
+
+**Layout:**
+
+```text
+    UInt {FromId}
+    UInt {DistId}
+    CString {Message}   // max 0x181 including NUL
+    UInt {BalloonId}
+```
+
+July 2009 DistId `-6` is the System / Notice filter (mapper `0x41fd90`, type 5). DistId `-5` is a hole (type 0, public chat). 2011 remapped System / Notice onto `-5`. MOTD and other `SystemNotice` packets must use `-6` on this branch or the 2009 UI aborts at `0x42642d`. See `docs/July2009Wire.md`.
+
 ## send_get_item_base_list (ItemGetBaseListRequest)
 
 - **Server:** Msg

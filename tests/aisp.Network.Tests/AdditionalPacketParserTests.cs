@@ -227,10 +227,11 @@ public class AdditionalPacketParserTests
         Assert.Equal(-19200f, parsed.PositionZ);
         Assert.Equal(24, parsed.Rotation);
         Assert.Equal((byte)MovementType.Stopped, parsed.Animation);
-        Assert.Equal((byte)0, parsed.Flag);
         Assert.Equal((ushort)50054, parsed.AreaServerInfo.Port);
         Assert.Equal("localhost", parsed.AreaServerInfo.IP);
         Assert.Equal((byte)0, parsed.FadeFlag);
+        Assert.Equal(NotifyChangeMap.RouteWireSize, 30);
+        Assert.Equal(packet.FadeFlag, bytes[NotifyChangeMap.RouteWireSize]);
     }
 
     [Fact]
