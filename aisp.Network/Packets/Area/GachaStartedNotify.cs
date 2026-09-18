@@ -4,7 +4,8 @@ namespace aisp.Network.Packets.Area;
 
 /// <summary>
 /// <c>recv_gacha_started</c> (0xCC88). Opens <c>CGachaWindow</c> (PAS <c>kuzi_window00.xml</c>, live name aiぽん).
-/// Reader is CString name (max 0xC1 including NUL), then visual, D price, P price, catalog serial/qty.
+/// VisualId loads <c>./interface/package/%08d.dds</c> (str_table 100,950,20) into PAS unit 130 ガチャ看板.
+/// 100000 = MoonScape; 101000 DC店; 102000 CL店; 103000 SH店; 200001 Bellair furniture.
 /// </summary>
 public sealed class GachaStartedNotify(
     string name,

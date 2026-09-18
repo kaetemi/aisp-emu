@@ -1988,9 +1988,14 @@ public class CmdExecHandlerTests
             );
             var parsed = GachaStartedNotify.FromBytes(notify.Payload);
             Assert.Equal("aiぽん", parsed.Name);
-            Assert.Equal(10110u, parsed.VisualId);
+            Assert.Equal(GachaTestSession.DefaultVisualId, parsed.VisualId);
             Assert.Equal(250ul, parsed.AiPoint);
             Assert.Equal(10ul, parsed.NicoPoint);
+            Assert.Equal(GachaTestSession.DefaultVisualId, GachaTestSession.VisualId);
+            Assert.Contains(
+                areaSession.Sent,
+                packet => packet.Type == PacketType.MoneyUpdatedAipoint
+            );
         }
         finally
         {

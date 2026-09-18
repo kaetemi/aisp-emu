@@ -1180,8 +1180,9 @@ public class CmdExecHandler(
     }
 
     /// <summary>
-    /// /gacha pushes <c>recv_gacha_started</c> so the July 2009 client opens <c>CGachaWindow</c>
-    /// (PAS <c>kuzi_window00.xml</c>, live name aiぽん). Optional D price, then P price.
+    /// /gacha [dPrice] [pPrice] [visual] pushes <c>recv_gacha_started</c> so
+    /// <c>CGachaWindow</c> opens. Visual is <c>./interface/package/%08d.dds</c>
+    /// (default 100000 = MoonScape). Tops up デレ so お金投入 can arm the crank.
     /// </summary>
     private async Task HandleGachaCommandAsync(
         IPlayerSession session,
@@ -1199,23 +1200,68 @@ public class CmdExecHandler(
             return;
         }
 
-        var aiPrice = 100ul;
+        var aiPrice = GachaTestSession.DefaultAiPrice;
         var nicoPrice = 0ul;
+        var visualId = GachaTestSession.DefaultVisualId;
         if (args.Count > 0 && ulong.TryParse(args[0], out var parsedAi))
             aiPrice = parsedAi;
         if (args.Count > 1 && ulong.TryParse(args[1], out var parsedNico))
             nicoPrice = parsedNico;
+        if (args.Count > 2 && uint.TryParse(args[2], out var parsedVisual) && parsedVisual > 0)
+            visualId = parsedVisual;
+
+        GachaTestSession.AiPrice = aiPrice;
+        GachaTestSession.NicoPrice = nicoPrice;
+        GachaTestSession.VisualId = visualId;
+        GachaTestSession.PrizeItemId = GachaTestSession.DefaultPrizeItemId;
+
+        var userId = session.User?.Id ?? session.UserId;
+        var user = areaClient.User ?? session.User;
+        var need = (long)Math.Max(aiPrice * 10, 1000);
+        if (user is not null && user.AiPoints < need)
+        {
+            var topped = await userRepo.AddMoneyAsync(userId, need - user.AiPoints, 0, ct);
+            if (topped is not null)
+            {
+                session.User = topped;
+                areaClient.User = topped;
+                user = topped;
+            }
+        }
+
+        if (user is not null)
+        {
+            await areaClient.SendAsync(
+                PacketType.MoneyUpdatedAipoint,
+                new MoneyUpdatedAipointNotify((ulong)Math.Max(0, user.AiPoints)).ToBytes(),
+                ct
+            );
+            await areaClient.SendAsync(
+                PacketType.MoneyUpdatedNicopoint,
+                new MoneyUpdatedNicopointNotify((ulong)Math.Max(0, user.NicoPoints)).ToBytes(),
+                ct
+            );
+        }
 
         await areaClient.SendAsync(
             PacketType.GachaStartedNotify,
-            new GachaStartedNotify("aiぽん", 10110, aiPrice, nicoPrice, 10100220, 1).ToBytes(),
+            new GachaStartedNotify(
+                "aiぽん",
+                visualId,
+                aiPrice,
+                nicoPrice,
+                GachaTestSession.PrizeItemId,
+                1
+            ).ToBytes(),
             ct
         );
         logger.LogInformation(
-            "CmdExecHandler: sent recv_gacha_started to character {CharacterId} D={Ai} P={Nico}",
+            "CmdExecHandler: sent recv_gacha_started to character {CharacterId} visual={Visual} D={Ai} P={Nico} purse={Purse}",
             areaClient.CharacterId,
+            visualId,
             aiPrice,
-            nicoPrice
+            nicoPrice,
+            user?.AiPoints
         );
     }
 
