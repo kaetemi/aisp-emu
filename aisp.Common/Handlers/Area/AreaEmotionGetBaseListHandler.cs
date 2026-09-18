@@ -45,33 +45,14 @@ public class AreaEmotionGetBaseListHandler(ITextLocaliser localiser)
         AddNamed(emotions, session, 24, EmotionCategory.Action);
         AddNamed(emotions, session, 25, EmotionCategory.Action);
         AddNamed(emotions, session, 26, EmotionCategory.Action);
-        for (uint i = 28; i <= 36; i++)
-            Add(
-                emotions,
-                i,
-                localiser.Get(session, L.Emotion.GameFormat, i),
-                EmotionCategory.Action
-            );
-        AddNamed(emotions, session, 105, EmotionCategory.Action);
 
         AddNamed(emotions, session, 14, EmotionCategory.Passion);
         AddNamed(emotions, session, 15, EmotionCategory.Passion);
         AddNamed(emotions, session, 16, EmotionCategory.Passion);
 
+        // Sit. Later 2011 ids (28–36, 100–105, 10101000+ voices) make this list ~10 KB
+        // and the July 2009 client RST+logout after Area enter.
         AddNamed(emotions, session, 27, EmotionCategory.Etc);
-        for (uint i = 100; i <= 104; i++)
-            Add(emotions, i, localiser.Get(session, L.Emotion.WaitFormat, i), EmotionCategory.Etc);
-
-        for (uint i = 1; i <= 50; i++)
-        {
-            uint id = 10101000 + i;
-            Add(
-                emotions,
-                id,
-                localiser.Get(session, L.Emotion.VoiceFormat, i),
-                EmotionCategory.Voice
-            );
-        }
 
         var response = new EmotionGetBaseListResponse(0, emotions);
         await session.SendAsync(ResponseType, response.ToBytes(), ct);

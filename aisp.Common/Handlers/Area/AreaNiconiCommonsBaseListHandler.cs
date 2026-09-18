@@ -1,14 +1,10 @@
-using aisp.Common.DAL.Repositories;
 using aisp.Common.Game;
 using aisp.Network;
 using aisp.Network.Packets.Area;
 
 namespace aisp.Common.Handlers.Area;
 
-public sealed class AreaNiconiCommonsBaseListHandler(
-    ICharacterRepository characters,
-    DramaCatalog catalog
-) : IPacketHandler, IRequiresAuthenticatedSession
+public sealed class AreaNiconiCommonsBaseListHandler : IPacketHandler, IRequiresAuthenticatedSession
 {
     public PacketType RequestType => PacketType.NiconiCommonsBaseListRequest;
     public PacketType ResponseType => PacketType.NiconiCommonsBaseListResponse;
@@ -20,12 +16,11 @@ public sealed class AreaNiconiCommonsBaseListHandler(
         CancellationToken ct = default
     )
     {
-        var character =
-            session.CharacterId == 0
-                ? null
-                : await characters.GetByIdAsync(checked((int)session.CharacterId), ct);
-        var rows = await catalog.CommonsAsync(character, session, ct);
-        var response = new NiconiCommonsBaseListResponse(0, rows);
-        await session.SendAsync(ResponseType, response.ToBytes(), ct);
+        // July 2009 client RST+logout after the 2011 Niconi Commons catalog.
+        await session.SendAsync(
+            ResponseType,
+            new NiconiCommonsBaseListResponse(0, []).ToBytes(),
+            ct
+        );
     }
 }

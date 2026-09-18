@@ -1,14 +1,10 @@
-using aisp.Common.DAL.Repositories;
 using aisp.Common.Game;
 using aisp.Network;
 using aisp.Network.Packets.Area;
 
 namespace aisp.Common.Handlers.Area;
 
-public sealed class AreaUccAdvFigureBaseListHandler(
-    ICharacterRepository characters,
-    DramaCatalog catalog
-) : IPacketHandler, IRequiresAuthenticatedSession
+public sealed class AreaUccAdvFigureBaseListHandler : IPacketHandler, IRequiresAuthenticatedSession
 {
     public PacketType RequestType => PacketType.UccAdvFigureBaseListRequest;
     public PacketType ResponseType => PacketType.UccAdvFigureBaseListResponse;
@@ -20,12 +16,11 @@ public sealed class AreaUccAdvFigureBaseListHandler(
         CancellationToken ct = default
     )
     {
-        var character =
-            session.CharacterId == 0
-                ? null
-                : await characters.GetByIdAsync(checked((int)session.CharacterId), ct);
-        var rows = await catalog.FiguresAsync(character, session, ct);
-        var response = new UccAdvFigureBaseListResponse(0, rows);
-        await session.SendAsync(ResponseType, response.ToBytes(), ct);
+        // July 2009 client RST+logout after the 2011 377-byte figure records (~10 KB).
+        await session.SendAsync(
+            ResponseType,
+            new UccAdvFigureBaseListResponse(0, []).ToBytes(),
+            ct
+        );
     }
 }
