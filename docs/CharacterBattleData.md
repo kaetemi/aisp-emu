@@ -79,8 +79,9 @@ Do not send `EventGetTpsModeNotify` on the 2009 wire.
 ## 2009 UI that is *not* this blob
 
 - `CMyStatusWindow` (IF factory `0x4A`, ctor `0x5d77e0`) is マイステータス, the profile editor.
-- Adjacent `CAipowerWindow` (`0x4B`, ctor `0x5d3820`) / `CAipowerCharaSheet` / `CAICharaParam` is the likely home for the 3 × 5 parameter uints.
-- 2009 help never documents HP / hearts / stamina or a battle HUD.
+- `CAipowerWindow` (IF `0x4B`, ctor `0x5d3820`, alloc `0xF40`) is **AIパワー**, a charadoll support/cheer sheet, not a fight HUD. PAS `ai_power00.xml` titles it `aiパワー`. Tabs are 応援画面 and 要望箱. Each card has a 3D visual, profile (height / weight / three-size / likes / dislikes), a dialogue balloon, two gauges, and **six heart pips** (`ハート-1`…`ハート-6` plus `ハート-max`). Buttons spend AI points or nico points (`応援する！`, `一口応援`). The texture atlas is stamped **開発中！**. 2009 help never mentions it; it is not on ウィンドウメニュー.
+- The window opens when Area sends `recv_aipower_data` (`0x59C3`, handler `0x72ABA0`): 8-byte header (`count` + reserved uint) + `N` records of `0x4C0` bytes, `N ≤ 0x12C` (300). After parse it calls vtable `+0x518`. Internal UI message `0x30001` can also construct type `0x4B` locally. `recv_close_aipower_window_r` (`0x6B53`) is a 4-byte result (vtable `+0x524`). `recv_support_aipower_aipoint_r` (`0x5DB8`) is 12 bytes. 2011 deleted `CAipowerWindow` RTTI but kept the PAS/DDS and VCE log stubs; TPS `tps_status00.xml` (`TPS戦闘-HPステータス`) is the 2011 heart/stamina HUD. `/aipower` on this branch pushes that notify (optional count 0–300; `empty` for a header-only dump).
+- Hearts on this sheet are the two bytes in `HitPointData` (`CurrentHearts` / `MaximumHearts`). The four HP uints are the numeric bar; 2009 has live `recv_notify_update_hitpoint` (`0x9CC0`, 8 bytes) and `recv_notify_update_hitpoint_max` (`0xAEEF`) but **no** `recv_notify_update_heart`. No 2009 HP overlay HUD.
 - `recv_notify_avatar_data` at `0x70ff50` `memcpy`s the full `0x370`-byte `AvatarData` snapshot to `0x970320`. HUD consumers read that snapshot, not field-by-field HP packets, until a later `notify_update_*`.
 
 ## Persistence

@@ -2346,7 +2346,7 @@ public enum PacketType : ushort
         PacketServerType.Area,
         PacketDirection.ServerToClient,
         "recv_aipower_data",
-        ImplementationState.NotImplemented
+        ImplementationState.Implemented
     )]
     AiPowerDataNotify = 0x59C3,
 

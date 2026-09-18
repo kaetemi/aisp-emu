@@ -1715,6 +1715,106 @@ public class CmdExecHandlerTests
     }
 
     [Fact]
+    public async Task AiPowerCommand_SendsOneCardNamedAfterTheCharacter()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+
+        try
+        {
+            var user = CreateUserWithCharacter(1, 8021, "aipower-user", "Kaetemi", 10990100);
+            await using (var db = new MainContext(options))
+            {
+                db.Users.Add(user);
+                await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+            }
+
+            var state = new SharedState();
+            var areaSession = new CapturingPlayerSession
+            {
+                User = user,
+                UserId = user.Id,
+                Character = user.Characters.First(),
+                CharacterId = 8021,
+                MapId = 10990100,
+                ChannelId = 1,
+            };
+            state.RegisterClient(ServerType.Area, areaSession);
+            var msgSession = new CapturingPlayerSession { User = user, UserId = user.Id };
+            var handler = CreateReportHandler(options, state);
+
+            await handler.HandleAsync(
+                BuildCmdExecPayload("/aipower"),
+                msgSession,
+                TestContext.Current.CancellationToken
+            );
+
+            var notify = Assert.Single(
+                areaSession.Sent,
+                packet => packet.Type == PacketType.AiPowerDataNotify
+            );
+            var parsed = AiPowerDataNotify.FromBytes(notify.Payload);
+            var card = Assert.Single(parsed.Cards);
+            Assert.Equal("Kaetemi", card.Name);
+            Assert.Equal(
+                AiPowerDataNotify.HeaderSize + AiPowerCardData.WireSize,
+                notify.Payload.Length
+            );
+            Assert.Contains(msgSession.Sent, packet => packet.Type == PacketType.CmdExecResponse);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task AiPowerCommand_Empty_SendsHeaderOnly()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+
+        try
+        {
+            var user = CreateUserWithCharacter(1, 8022, "aipower-empty", "Empty", 10990100);
+            await using (var db = new MainContext(options))
+            {
+                db.Users.Add(user);
+                await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+            }
+
+            var state = new SharedState();
+            var areaSession = new CapturingPlayerSession
+            {
+                User = user,
+                UserId = user.Id,
+                Character = user.Characters.First(),
+                CharacterId = 8022,
+                MapId = 10990100,
+                ChannelId = 1,
+            };
+            state.RegisterClient(ServerType.Area, areaSession);
+            var msgSession = new CapturingPlayerSession { User = user, UserId = user.Id };
+            var handler = CreateReportHandler(options, state);
+
+            await handler.HandleAsync(
+                BuildCmdExecPayload("/aipower", "empty"),
+                msgSession,
+                TestContext.Current.CancellationToken
+            );
+
+            var notify = Assert.Single(
+                areaSession.Sent,
+                packet => packet.Type == PacketType.AiPowerDataNotify
+            );
+            Assert.Equal(AiPowerDataNotify.HeaderSize, notify.Payload.Length);
+            Assert.Empty(AiPowerDataNotify.FromBytes(notify.Payload).Cards);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
     public async Task GiveCommand_FullInventory_DoesNotSendInventoryNotify()
     {
         var (connection, options) = TestDb.CreateInMemoryMainContext();

@@ -742,6 +742,12 @@ public class CmdExecHandler(
             return;
         }
 
+        if (cmd is "aipower")
+        {
+            await HandleAiPowerCommandAsync(session, request.Arguments, ct);
+            return;
+        }
+
         if (cmd is "money")
         {
             var userId = session.User?.Id ?? session.UserId;
@@ -943,6 +949,69 @@ public class CmdExecHandler(
             MyRoomStage.TwelveTatami => 12,
             _ => 0,
         };
+
+    /// <summary>
+    /// /aipower pushes <c>recv_aipower_data</c> so the July 2009 client opens
+    /// <c>CAipowerWindow</c>. Optional count 0–300 (default 1); <c>empty</c> sends no cards.
+    /// </summary>
+    private async Task HandleAiPowerCommandAsync(
+        IPlayerSession session,
+        IReadOnlyList<string> args,
+        CancellationToken ct
+    )
+    {
+        var areaClient = ResolveAreaClient(session);
+        if (areaClient == null)
+        {
+            logger.LogWarning(
+                "CmdExecHandler: aipower requires an active area session for user {UserId}",
+                session.User?.Id ?? session.UserId
+            );
+            return;
+        }
+
+        var count = 1u;
+        if (args.Count > 0)
+        {
+            var spec = args[0];
+            if (spec.Equals("empty", StringComparison.OrdinalIgnoreCase) || spec == "0")
+                count = 0;
+            else if (!uint.TryParse(spec, out count))
+                count = 1;
+        }
+
+        count = Math.Min(count, AiPowerDataNotify.MaxCount);
+        var name = areaClient.Character?.Name;
+        if (string.IsNullOrWhiteSpace(name))
+            name = "AIパワー";
+
+        var cards = new AiPowerCardData[count];
+        for (var i = 0; i < cards.Length; i++)
+        {
+            var index = i + 1;
+            cards[i] = new AiPowerCardData
+            {
+                Id = (ushort)index,
+                Name = cards.Length == 1 ? name : $"{name} {index}",
+                Caption = "開発中",
+                Param0 = 3,
+                Param1 = 6,
+                Param2 = 0,
+                ProfileFields = ["好きなもの", "あいすぺーす", "嫌いなもの", "未設定", "自己紹介"],
+            };
+        }
+
+        await areaClient.SendAsync(
+            PacketType.AiPowerDataNotify,
+            new AiPowerDataNotify(cards).ToBytes(),
+            ct
+        );
+        logger.LogInformation(
+            "CmdExecHandler: sent recv_aipower_data ({Count} card(s)) to character {CharacterId}",
+            count,
+            areaClient.CharacterId
+        );
+    }
 
     private IPlayerSession? ResolveAreaClient(IPlayerSession msgSession)
     {
