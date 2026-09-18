@@ -2538,7 +2538,7 @@ public enum PacketType : ushort
         PacketServerType.Area,
         PacketDirection.ServerToClient,
         "recv_event_board_open",
-        ImplementationState.NotImplemented
+        ImplementationState.Implemented
     )]
     EventBoardOpenNotify = 0xFC57,
 
@@ -2793,16 +2793,32 @@ public enum PacketType : ushort
     [PacketMetadata(
         PacketServerType.Area,
         PacketDirection.ServerToClient,
+        "recv_gacha_buy_r",
+        ImplementationState.Implemented
+    )]
+    GachaBuyResponse = 0x2F2D,
+
+    [PacketMetadata(
+        PacketServerType.Area,
+        PacketDirection.ServerToClient,
         "recv_gacha_end_r",
-        ImplementationState.NotImplemented
+        ImplementationState.Implemented
     )]
     GachaEndResponse = 0x1380,
 
     [PacketMetadata(
         PacketServerType.Area,
         PacketDirection.ServerToClient,
+        "recv_gacha_ended",
+        ImplementationState.Implemented
+    )]
+    GachaEndedNotify = 0x78A8,
+
+    [PacketMetadata(
+        PacketServerType.Area,
+        PacketDirection.ServerToClient,
         "recv_gacha_started",
-        ImplementationState.NotImplemented
+        ImplementationState.Implemented
     )]
     GachaStartedNotify = 0xCC88,
 
@@ -2826,7 +2842,7 @@ public enum PacketType : ushort
         PacketServerType.Area,
         PacketDirection.ServerToClient,
         "recv_gachaticket_exchange_open",
-        ImplementationState.NotImplemented
+        ImplementationState.Implemented
     )]
     GachaTicketExchangeOpenNotify = 0x7D14,
 
@@ -5050,7 +5066,7 @@ public enum PacketType : ushort
         PacketServerType.Area,
         PacketDirection.ClientToServer,
         "send_event_board_close",
-        ImplementationState.NotImplemented
+        ImplementationState.Implemented
     )]
     EventBoardCloseRequest = 0x4A90,
 
@@ -5146,15 +5162,23 @@ public enum PacketType : ushort
         PacketServerType.Area,
         PacketDirection.ClientToServer,
         "send_gacha_buy",
-        ImplementationState.NotImplemented
+        ImplementationState.Implemented
     )]
     GachaBuyRequest = 0x663A,
 
     [PacketMetadata(
         PacketServerType.Area,
         PacketDirection.ClientToServer,
+        "send_gacha_end",
+        ImplementationState.Implemented
+    )]
+    GachaEndRequest = 0xD7FC,
+
+    [PacketMetadata(
+        PacketServerType.Area,
+        PacketDirection.ClientToServer,
         "send_gachaticket_exchange_close",
-        ImplementationState.NotImplemented
+        ImplementationState.Implemented
     )]
     GachaTicketExchangeCloseRequest = 0x953B,
 

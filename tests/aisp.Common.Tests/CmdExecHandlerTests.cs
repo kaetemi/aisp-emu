@@ -1829,6 +1829,231 @@ public class CmdExecHandlerTests
     }
 
     [Fact]
+    public async Task NoticeCommand_SendsEventNotice()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var (msgSession, areaSession, handler) = await CreateAreaCommandHarness(
+                options,
+                8031,
+                "notice-user"
+            );
+            await handler.HandleAsync(
+                BuildCmdExecPayload("/notice", "テスト"),
+                msgSession,
+                TestContext.Current.CancellationToken
+            );
+            var notify = Assert.Single(
+                areaSession.Sent,
+                packet => packet.Type == PacketType.EventNoticeNotify
+            );
+            var parsed = EventNoticeNotify.FromBytes(notify.Payload);
+            Assert.Equal("システム", parsed.Name);
+            Assert.Equal("テスト", parsed.Text);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task TalkCommand_SendsEventMessageWithoutEventStart()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var (msgSession, areaSession, handler) = await CreateAreaCommandHarness(
+                options,
+                8032,
+                "talk-user"
+            );
+            await handler.HandleAsync(
+                BuildCmdExecPayload("/talk", "やあ"),
+                msgSession,
+                TestContext.Current.CancellationToken
+            );
+            Assert.Contains(
+                areaSession.Sent,
+                packet => packet.Type == PacketType.EventMessageNotify
+            );
+            Assert.DoesNotContain(
+                areaSession.Sent,
+                packet => packet.Type == PacketType.EventStartNotify
+            );
+            var notify = areaSession.Sent.Single(p => p.Type == PacketType.EventMessageNotify);
+            var reader = new PacketReader(notify.Payload);
+            Assert.Equal(0u, reader.ReadUInt());
+            Assert.Equal("リン", reader.ReadString());
+            Assert.Equal("やあ", reader.ReadString());
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task ShopCommand_SendsStartedAndSampleCatalog()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var (msgSession, areaSession, handler) = await CreateAreaCommandHarness(
+                options,
+                8033,
+                "shop-user"
+            );
+            await handler.HandleAsync(
+                BuildCmdExecPayload("/shop"),
+                msgSession,
+                TestContext.Current.CancellationToken
+            );
+            var started = Assert.Single(
+                areaSession.Sent,
+                packet => packet.Type == PacketType.ShopStartedNotify
+            );
+            var startedReader = new PacketReader(started.Payload);
+            Assert.Equal(1u, startedReader.ReadUInt());
+            Assert.Equal("テストショップ", startedReader.ReadString());
+            Assert.Equal(10110u, startedReader.ReadUInt());
+            var items = Assert.Single(
+                areaSession.Sent,
+                packet => packet.Type == PacketType.ShopItemNotify
+            );
+            var itemReader = new PacketReader(items.Payload);
+            Assert.Equal(6u, itemReader.ReadUInt());
+            Assert.Equal(50ul, itemReader.ReadULong());
+            Assert.Equal(50ul, itemReader.ReadULong());
+            Assert.Equal(10100220u, itemReader.ReadUInt());
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task StorageCommand_OpensWarehouseUi()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var (msgSession, areaSession, handler) = await CreateAreaCommandHarness(
+                options,
+                8034,
+                "storage-user"
+            );
+            await handler.HandleAsync(
+                BuildCmdExecPayload("/storage"),
+                msgSession,
+                TestContext.Current.CancellationToken
+            );
+            Assert.Contains(
+                areaSession.Sent,
+                packet => packet.Type == PacketType.StorageFurnOpenResponse
+            );
+            Assert.Contains(
+                areaSession.Sent,
+                packet => packet.Type == PacketType.StorageOpenedNotify
+            );
+            Assert.Equal(StorageOpenContext.Wardrobe, areaSession.StorageOpenContext);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task GachaCommand_SendsMachineSession()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var (msgSession, areaSession, handler) = await CreateAreaCommandHarness(
+                options,
+                8035,
+                "gacha-user"
+            );
+            await handler.HandleAsync(
+                BuildCmdExecPayload("/gacha", "250", "10"),
+                msgSession,
+                TestContext.Current.CancellationToken
+            );
+            var notify = Assert.Single(
+                areaSession.Sent,
+                packet => packet.Type == PacketType.GachaStartedNotify
+            );
+            var parsed = GachaStartedNotify.FromBytes(notify.Payload);
+            Assert.Equal("aiぽん", parsed.Name);
+            Assert.Equal(10110u, parsed.VisualId);
+            Assert.Equal(250ul, parsed.AiPoint);
+            Assert.Equal(10ul, parsed.NicoPoint);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task TicketCommand_OpensExchangeBox()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var (msgSession, areaSession, handler) = await CreateAreaCommandHarness(
+                options,
+                8036,
+                "ticket-user"
+            );
+            await handler.HandleAsync(
+                BuildCmdExecPayload("/ticket", "5"),
+                msgSession,
+                TestContext.Current.CancellationToken
+            );
+            var notify = Assert.Single(
+                areaSession.Sent,
+                packet => packet.Type == PacketType.GachaTicketExchangeOpenNotify
+            );
+            Assert.Equal(5u, GachaTicketExchangeOpenNotify.FromBytes(notify.Payload).BaseNum);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task BoardCommand_SkipsSendOnJuly2009()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var (msgSession, areaSession, handler) = await CreateAreaCommandHarness(
+                options,
+                8037,
+                "board-user"
+            );
+            await handler.HandleAsync(
+                BuildCmdExecPayload("/board"),
+                msgSession,
+                TestContext.Current.CancellationToken
+            );
+            Assert.DoesNotContain(
+                areaSession.Sent,
+                packet => packet.Type == PacketType.EventBoardOpenNotify
+            );
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
     public async Task GiveCommand_FullInventory_DoesNotSendInventoryNotify()
     {
         var (connection, options) = TestDb.CreateInMemoryMainContext();
@@ -2819,6 +3044,38 @@ public class CmdExecHandlerTests
         {
             await connection.DisposeAsync();
         }
+    }
+
+    private async Task<(
+        CapturingPlayerSession Msg,
+        CapturingPlayerSession Area,
+        CmdExecHandler Handler
+    )> CreateAreaCommandHarness(
+        DbContextOptions<MainContext> options,
+        int characterId,
+        string username
+    )
+    {
+        var user = CreateUserWithCharacter(1, characterId, username, "Kaetemi", 10990100);
+        await using (var db = new MainContext(options))
+        {
+            db.Users.Add(user);
+            await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        var state = new SharedState();
+        var areaSession = new CapturingPlayerSession
+        {
+            User = user,
+            UserId = user.Id,
+            Character = user.Characters.First(),
+            CharacterId = (uint)characterId,
+            MapId = 10990100,
+            ChannelId = 1,
+        };
+        state.RegisterClient(ServerType.Area, areaSession);
+        var msgSession = new CapturingPlayerSession { User = user, UserId = user.Id };
+        return (msgSession, areaSession, CreateReportHandler(options, state));
     }
 
     private static CmdExecHandler CreateReportHandler(

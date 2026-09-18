@@ -748,6 +748,48 @@ public class CmdExecHandler(
             return;
         }
 
+        if (cmd is "notice")
+        {
+            await HandleNoticeCommandAsync(session, request.Arguments, ct);
+            return;
+        }
+
+        if (cmd is "talk" or "eventmsg")
+        {
+            await HandleTalkCommandAsync(session, request.Arguments, ct);
+            return;
+        }
+
+        if (cmd is "shop")
+        {
+            await HandleShopCommandAsync(session, request.Arguments, ct);
+            return;
+        }
+
+        if (cmd is "storage" or "warehouse")
+        {
+            await HandleStorageCommandAsync(session, ct);
+            return;
+        }
+
+        if (cmd is "gacha" or "aipon")
+        {
+            await HandleGachaCommandAsync(session, request.Arguments, ct);
+            return;
+        }
+
+        if (cmd is "ticket" or "gachaticket")
+        {
+            await HandleGachaTicketCommandAsync(session, request.Arguments, ct);
+            return;
+        }
+
+        if (cmd is "board" or "bbs")
+        {
+            await HandleBoardCommandAsync(session, request.Arguments, ct);
+            return;
+        }
+
         if (cmd is "money")
         {
             var userId = session.User?.Id ?? session.UserId;
@@ -994,6 +1036,268 @@ public class CmdExecHandler(
         logger.LogInformation(
             "CmdExecHandler: sent recv_aipower_data ({Count} card(s)) to character {CharacterId}",
             count,
+            areaClient.CharacterId
+        );
+    }
+
+    /// <summary>
+    /// /notice [text] pushes <c>recv_event_notice</c> so the July 2009 client opens the
+    /// event notice overlay (<c>CEventFrameWindow</c> / PAS <c>event_window00.xml</c>).
+    /// </summary>
+    private async Task HandleNoticeCommandAsync(
+        IPlayerSession session,
+        IReadOnlyList<string> args,
+        CancellationToken ct
+    )
+    {
+        var areaClient = ResolveAreaClient(session);
+        if (areaClient == null)
+        {
+            logger.LogWarning(
+                "CmdExecHandler: notice requires an active area session for user {UserId}",
+                session.User?.Id ?? session.UserId
+            );
+            return;
+        }
+
+        var text = args.Count > 0 ? string.Join(" ", args) : "これはテストのお知らせです。";
+        await areaClient.SendAsync(
+            PacketType.EventNoticeNotify,
+            new EventNoticeNotify("システム", text).ToBytes(),
+            ct
+        );
+        logger.LogInformation(
+            "CmdExecHandler: sent recv_event_notice to character {CharacterId}",
+            areaClient.CharacterId
+        );
+    }
+
+    /// <summary>
+    /// /talk [text] pushes <c>recv_event_message</c> (no <c>recv_event_start</c> — 2009 has no
+    /// <c>recv_event_end</c> opcode, so a started event would stick).
+    /// </summary>
+    private async Task HandleTalkCommandAsync(
+        IPlayerSession session,
+        IReadOnlyList<string> args,
+        CancellationToken ct
+    )
+    {
+        var areaClient = ResolveAreaClient(session);
+        if (areaClient == null)
+        {
+            logger.LogWarning(
+                "CmdExecHandler: talk requires an active area session for user {UserId}",
+                session.User?.Id ?? session.UserId
+            );
+            return;
+        }
+
+        var text =
+            args.Count > 0 ? string.Join(" ", args) : "こんにちは。テストの会話ウィンドウです。";
+        await areaClient.SendAsync(
+            PacketType.EventMessageNotify,
+            new EventMessageNotify(0, "リン", text).ToBytes(),
+            ct
+        );
+        logger.LogInformation(
+            "CmdExecHandler: sent recv_event_message to character {CharacterId}",
+            areaClient.CharacterId
+        );
+    }
+
+    /// <summary>
+    /// /shop pushes <c>recv_shop_started</c> + <c>recv_shop_item</c> so <c>CItemShopWindow</c> opens
+    /// with a short starter-clothing catalog (banner 10110).
+    /// </summary>
+    private async Task HandleShopCommandAsync(
+        IPlayerSession session,
+        IReadOnlyList<string> args,
+        CancellationToken ct
+    )
+    {
+        var areaClient = ResolveAreaClient(session);
+        if (areaClient == null)
+        {
+            logger.LogWarning(
+                "CmdExecHandler: shop requires an active area session for user {UserId}",
+                session.User?.Id ?? session.UserId
+            );
+            return;
+        }
+
+        var items = SampleShopItems;
+        if (args.Count > 0 && int.TryParse(args[0], out var take) && take >= 0)
+            items = SampleShopItems.Take(Math.Min(take, SampleShopItems.Length)).ToArray();
+
+        await areaClient.SendAsync(
+            PacketType.ShopStartedNotify,
+            new ShopStartedNotify(1, "テストショップ", 10110).ToBytes(),
+            ct
+        );
+        await areaClient.SendAsync(
+            PacketType.ShopItemNotify,
+            new ShopItemNotify(items).ToBytes(),
+            ct
+        );
+        logger.LogInformation(
+            "CmdExecHandler: sent recv_shop_started ({Count} item(s)) to character {CharacterId}",
+            items.Length,
+            areaClient.CharacterId
+        );
+    }
+
+    private static readonly ShopItemEntry[] SampleShopItems =
+    [
+        new(10100220, 50, 50),
+        new(10200100, 50, 50),
+        new(10400030, 50, 50),
+        new(10500070, 50, 50),
+        new(10600010, 80, 0),
+        new(10700040, 80, 0),
+    ];
+
+    /// <summary>
+    /// /storage pushes the furniture-open flag then <c>recv_storage_opened</c> so
+    /// <c>CaiStorageWindow</c> (PAS 1120 / <c>storage.xml</c>) appears.
+    /// </summary>
+    private async Task HandleStorageCommandAsync(IPlayerSession session, CancellationToken ct)
+    {
+        var areaClient = ResolveAreaClient(session);
+        if (areaClient == null)
+        {
+            logger.LogWarning(
+                "CmdExecHandler: storage requires an active area session for user {UserId}",
+                session.User?.Id ?? session.UserId
+            );
+            return;
+        }
+
+        await StorageSession.OpenAsync(areaClient, StorageOpenContext.Wardrobe, ct);
+        logger.LogInformation(
+            "CmdExecHandler: opened storage for character {CharacterId}",
+            areaClient.CharacterId
+        );
+    }
+
+    /// <summary>
+    /// /gacha pushes <c>recv_gacha_started</c> so the July 2009 client opens <c>CGachaWindow</c>
+    /// (PAS <c>kuzi_window00.xml</c>, live name aiぽん). Optional D price, then P price.
+    /// </summary>
+    private async Task HandleGachaCommandAsync(
+        IPlayerSession session,
+        IReadOnlyList<string> args,
+        CancellationToken ct
+    )
+    {
+        var areaClient = ResolveAreaClient(session);
+        if (areaClient == null)
+        {
+            logger.LogWarning(
+                "CmdExecHandler: gacha requires an active area session for user {UserId}",
+                session.User?.Id ?? session.UserId
+            );
+            return;
+        }
+
+        var aiPrice = 100ul;
+        var nicoPrice = 0ul;
+        if (args.Count > 0 && ulong.TryParse(args[0], out var parsedAi))
+            aiPrice = parsedAi;
+        if (args.Count > 1 && ulong.TryParse(args[1], out var parsedNico))
+            nicoPrice = parsedNico;
+
+        await areaClient.SendAsync(
+            PacketType.GachaStartedNotify,
+            new GachaStartedNotify("aiぽん", 10110, aiPrice, nicoPrice, 10100220, 1).ToBytes(),
+            ct
+        );
+        logger.LogInformation(
+            "CmdExecHandler: sent recv_gacha_started to character {CharacterId} D={Ai} P={Nico}",
+            areaClient.CharacterId,
+            aiPrice,
+            nicoPrice
+        );
+    }
+
+    /// <summary>
+    /// /ticket [quota] pushes <c>recv_gachaticket_exchange_open</c> (ガチャガチャボックス).
+    /// </summary>
+    private async Task HandleGachaTicketCommandAsync(
+        IPlayerSession session,
+        IReadOnlyList<string> args,
+        CancellationToken ct
+    )
+    {
+        var areaClient = ResolveAreaClient(session);
+        if (areaClient == null)
+        {
+            logger.LogWarning(
+                "CmdExecHandler: ticket requires an active area session for user {UserId}",
+                session.User?.Id ?? session.UserId
+            );
+            return;
+        }
+
+        var quota = 10u;
+        if (args.Count > 0 && uint.TryParse(args[0], out var parsed) && parsed > 0)
+            quota = parsed;
+
+        await areaClient.SendAsync(
+            PacketType.GachaTicketExchangeOpenNotify,
+            new GachaTicketExchangeOpenNotify(quota).ToBytes(),
+            ct
+        );
+        logger.LogInformation(
+            "CmdExecHandler: sent recv_gachaticket_exchange_open (quota {Quota}) to character {CharacterId}",
+            quota,
+            areaClient.CharacterId
+        );
+    }
+
+    /// <summary>
+    /// /board [url] pushes <c>recv_event_board_open</c>. Default is the local emulator health page.
+    /// </summary>
+    private async Task HandleBoardCommandAsync(
+        IPlayerSession session,
+        IReadOnlyList<string> args,
+        CancellationToken ct
+    )
+    {
+        var areaClient = ResolveAreaClient(session);
+        if (areaClient == null)
+        {
+            logger.LogWarning(
+                "CmdExecHandler: board requires an active area session for user {UserId}",
+                session.User?.Id ?? session.UserId
+            );
+            return;
+        }
+
+        var force = args.Count > 0 && args[0].Equals("force", StringComparison.OrdinalIgnoreCase);
+        var url =
+            force && args.Count > 1
+                ? string.Join(" ", args.Skip(1))
+                : "http://127.0.0.1:8080/healthz";
+        if (!force)
+        {
+            // July 2009 has no bbs.xml / CBoardBrowserWindow; recv_event_board_open
+            // (30-byte CString) VCE-resets Area (verified 2026-09-18).
+            logger.LogWarning(
+                "CmdExecHandler: /board skipped for character {CharacterId} (2009 RST); pass 'force' to send {Url}",
+                areaClient.CharacterId,
+                url
+            );
+            return;
+        }
+
+        await areaClient.SendAsync(
+            PacketType.EventBoardOpenNotify,
+            new EventBoardOpenNotify(url).ToBytes(),
+            ct
+        );
+        logger.LogInformation(
+            "CmdExecHandler: sent recv_event_board_open ({Url}) to character {CharacterId}",
+            url,
             areaClient.CharacterId
         );
     }

@@ -1,3 +1,5 @@
+using aisp.Network;
+
 namespace aisp.Network.Packets.Area;
 
 /// <summary>
@@ -20,9 +22,26 @@ public sealed class EventNoticeNotify : IOutgoingPacket
     public byte[] ToBytes()
     {
         var writer = new PacketWriter();
-        writer.Write(Name, "utf-8");
-        writer.Write(Text, "utf-8");
-        writer.Write(TalkType);
+        writer.Write(Name, 36);
+        writer.Write(Text, 1536);
+        // July 2009: two CStrings only. A trailing talkType uint left 4 bytes
+        // unconsumed and VCE-reset Area (verified 2026-09-18, 60-byte dump).
+        if (TalkType != 0)
+            writer.Write(TalkType);
         return writer.ToBytes();
+    }
+
+    public static EventNoticeNotify FromBytes(ReadOnlySpan<byte> data)
+    {
+        var reader = new PacketReader(data);
+        var name = reader.ReadString();
+        var text = reader.ReadString();
+        var consumed =
+            PacketEncoding.GetEncoding("utf-8").GetByteCount(name)
+            + 1
+            + PacketEncoding.GetEncoding("utf-8").GetByteCount(text)
+            + 1;
+        var talkType = data.Length >= consumed + 4 ? reader.ReadUInt() : 0u;
+        return new EventNoticeNotify(name, text, talkType);
     }
 }
