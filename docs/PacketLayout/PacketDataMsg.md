@@ -354,7 +354,7 @@
     UInt {BalloonId}
 ```
 
-July 2009 DistId `-6` is the System / Notice filter (mapper `0x41fd90`, type 5). DistId `-5` is a hole (type 0, public chat). 2011 remapped System / Notice onto `-5`. MOTD and other `SystemNotice` packets must use `-6` on this branch or the 2009 UI aborts at `0x42642d`. See `docs/July2009Wire.md`.
+July 2009 DistId `-5` is a hole (type 0, public chat); DistId `-6`/`-7` map to types 5/6. None of those filters have a usable notice UI — MOTD TalkForward aborts at `0x42642d`. MOTD is not sent on this branch. See `docs/July2009Wire.md`.
 
 ## send_get_item_base_list (ItemGetBaseListRequest)
 

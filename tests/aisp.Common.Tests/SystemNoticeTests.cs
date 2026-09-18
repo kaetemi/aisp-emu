@@ -7,11 +7,10 @@ namespace aisp.Common.Tests;
 public class SystemNoticeTests
 {
     [Fact]
-    public void DistId_IsJuly2009SystemNoticeFilter()
+    public void DistId_StaysAtThe2011SystemFilter()
     {
-        // 2009 0x41fd90: DistId -6 → filter type 5. DistId -5 is type 0 (public chat).
-        Assert.Equal(unchecked((uint)-6), SystemNotice.DistId);
-        Assert.NotEqual(unchecked((uint)-5), SystemNotice.DistId);
+        // 2009 has no System/Notice UI; DistId stays the 2011 value. MOTD is not sent.
+        Assert.Equal(unchecked((uint)-5), SystemNotice.DistId);
     }
 
     [Fact]
@@ -34,24 +33,8 @@ public class SystemNoticeTests
                 .Replace("\n", " ")
                 .Split(' ', StringSplitOptions.RemoveEmptyEntries)
         );
-        // 2009 System/Notice UI cannot host several \n in one payload; each paragraph is its own notify.
-        Assert.Equal(
-            new[] { "1 alice", "2 bob" },
-            SystemNotice.Messages("1 alice\n2 bob").ToList()
-        );
-    }
-
-    [Fact]
-    public void Messages_SplitDefaultMotdIntoOneNotifyPerRule()
-    {
-        var motd =
-            "Welcome to the aisp-emu server project!\n1. Be respectful - Treat other players and staff with respect.\n2. No hate speech or slurs.\n3. No excessive toxicity - Swearing is fine within reason.\n4. No harassing other players\n5. Keep inappropriate content out of public areas.\n6. No spam or disruptive behaviour.\n7. Respect moderator decisions\n8. Use common sense\nIf you see anyone breaking these rules use the '/report' command";
-        var lines = SystemNotice.Messages(motd).ToList();
-        Assert.True(lines.Count >= 8);
-        Assert.All(lines, line => Assert.DoesNotContain('\n', line));
-        Assert.All(lines, line => Assert.True(Encoding.UTF8.GetByteCount(line) < 120));
-        Assert.StartsWith("Welcome", lines[0]);
-        Assert.Contains(lines, line => line.StartsWith("8.", StringComparison.Ordinal));
+        // Short multi-line notices stay one message, with their line breaks.
+        Assert.Equal(new[] { "1 alice\n2 bob" }, SystemNotice.Messages("1 alice\n2 bob").ToList());
     }
 
     [Fact]

@@ -6,15 +6,10 @@ namespace aisp.Common.Game;
 
 public static class SystemNotice
 {
-    /// <summary>
-    /// DistId for the System / Notice chat filter on the July 2009 client.
-    /// 2009 <c>0x41fd90</c> maps DistId -6 → filter type 5 (inverse <c>0x41fe26</c> returns -6).
-    /// DistId -5 is a hole in that table (type 0, same as public chat). 2011 remapped the
-    /// same filter type onto DistId -5 (<c>sub_428B10</c>). Wine still aborts at HUD load if
-    /// MOTD is enabled (DistId -6 and -7 both abort); keep Motd disabled until the notice
-    /// UI path is fully reversed. Split each source paragraph into its own notify.
-    /// </summary>
-    public const uint DistId = unchecked((uint)-6);
+    // DistID -5 is the 2011 "System" / Notice chat filter (sub_428B10 / sub_428BB0).
+    // July 2009 has no usable notice UI for that filter: DistId -5 is a hole (type 0 public),
+    // DistId -6/-7 (type 5/6) abort at 0x42642d. MOTD is not sent on this branch.
+    public const uint DistId = unchecked((uint)-5);
 
     /// <summary>
     /// The client's recv_talk_forward reads the message into a char[0x181]: it scans the first
@@ -40,22 +35,18 @@ public static class SystemNotice
     }
 
     /// <summary>
-    /// Splits a notice into messages of at most <see cref="MaxLineBytes"/> UTF-8 bytes. Each
-    /// source paragraph is its own notify: the 2009 System/Notice UI aborts at <c>0x42642d</c>
-    /// when a single DistId -6 payload embeds several <c>\n</c> lines (the default MOTD was
-    /// 372 bytes / ~9 rules). Over-long paragraphs wrap on spaces, or inside a word only when
-    /// the word itself is too long.
+    /// Splits a notice into messages of at most <see cref="MaxLineBytes"/> UTF-8 bytes. Lines
+    /// stay together while they fit; an over-long line wraps on spaces, or inside a word only
+    /// when the word itself is too long.
     /// </summary>
     public static IEnumerable<string> Messages(string text, int maxBytes = MaxLineBytes)
     {
         var message = new StringBuilder();
         foreach (var (line, newParagraph) in Wrap(text, maxBytes))
         {
-            var candidate = message.Length == 0 ? line : message + " " + line;
-            if (
-                message.Length > 0
-                && (newParagraph || Encoding.UTF8.GetByteCount(candidate) > maxBytes)
-            )
+            var candidate =
+                message.Length == 0 ? line : message + (newParagraph ? "\n" : " ") + line;
+            if (message.Length > 0 && Encoding.UTF8.GetByteCount(candidate) > maxBytes)
             {
                 yield return message.ToString();
                 message.Clear().Append(line);

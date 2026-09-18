@@ -1,8 +1,8 @@
-# July 2009 wire deltas (DistId / change-map)
+# July 2009 wire deltas (MOTD / change-map)
 
-This branch targets the 2009-07-07 `ai sp@ce.exe` (build 0x45). Two mismatches against the 2011 layout crash or kick that client after Area enter.
+This branch targets the 2009-07-07 `ai sp@ce.exe` (build 0x45).
 
-## System / Notice DistId (`recv_talk_forward` `0x20F6`)
+## MOTD / System / Notice (`recv_talk_forward` `0x20F6`)
 
 `TalkForwardNotify` layout is the same on both clients: `FromId`, `DistId`, NUL-terminated message (max `0x181` bytes), `BalloonId`. Parser `0x753287` (alloc `0x610`).
 
@@ -16,13 +16,13 @@ The DistId → chat-filter mapper is not.
 | `-3` | type 2 | type 2 |
 | `-4` | type 3 | type 3 |
 | **`-5`** | **type 0 (public)** | **type 5 (System / Notice)** |
-| **`-6`** | **type 5 (System / Notice)** | type 6 |
+| **`-6`** | **type 5** | type 6 |
 | `-7` | type 6 | (not in the simple table) |
 | `0` | type 0 | type 0 |
 
-2009 inverse `0x41fe00` type 5 → DistId `-6`. Sending MOTD / `SystemNotice` as DistId `-5` (the 2011 value) is treated as public chat from `FromId=0`. The 2009 UI then aborts at `0x42642d` (`call eax` of vfunc `+0x168`, exception `40000015` / `STATUS_FATAL_APP_EXIT`, fault module `ai sp@ce.exe`).
+Wine 2026-09-18: MOTD as DistId `-5` (public FromId=0), `-6` (type 5), and `-7` (type 6) all abort at HUD load (`0x42642d`, `call eax` of vfunc `+0x168`, `STATUS_FATAL_APP_EXIT`). The 2009 client has no usable System / Notice UI for that packet. **MOTD is not sent** on this branch (`MotdNotice` clears `NeedsMotd` and returns; `Motd:Enabled` defaults false). `SystemNotice.DistId` stays `-5` (the 2011 value) for command notices; that path is not the MOTD channel.
 
-`SystemNotice.DistId` on this branch is `-6`. Each source paragraph is its own notify (a 372-byte 9-rule MOTD aborted even after DistId was corrected). **Wine 2026-09-18:** DistId `-6` and `-7` both still abort at HUD load when MOTD is enabled. Keep `Motd__Enabled=false` on the July 2009 prefix until the notice UI path is fully reversed. Map change with the 98-byte `NotifyChangeMap` is verified (`/tp 10990200` → UDX, `MapEnterRequest` for 10990200, no RST).
+Map change with the 98-byte `NotifyChangeMap` is verified (`/tp 10990200` → UDX, `MapEnterRequest` for 10990200, no RST).
 
 ## `recv_notify_change_map` (`0xB315`)
 

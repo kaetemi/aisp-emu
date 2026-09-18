@@ -140,7 +140,7 @@ See `docs/Project-Layout.md` for a deeper architecture walkthrough, `docs/Encryp
 
 ## July 2009 wire (this branch)
 
-See `docs/July2009Wire.md`. `SystemNotice.DistId` is **-6** (2009 System / Notice filter; 2011 uses -5). `NotifyChangeMap` is **98** bytes (FadeFlag before ServerInfo, no Flag byte). Sending the 2011 values crashes the 2009 client (`0x42642d` abort) or kicks maplinks to login.
+See `docs/July2009Wire.md`. MOTD is **not sent** (2009 has no System/Notice UI; TalkForward abort at `0x42642d`). `NotifyChangeMap` is **98** bytes (FadeFlag before ServerInfo, no Flag byte). The 2011 99-byte layout kicks maplinks to login.
 
 ## Decompiled client reference (`localDocs/aisp-decompiled.c`)
 

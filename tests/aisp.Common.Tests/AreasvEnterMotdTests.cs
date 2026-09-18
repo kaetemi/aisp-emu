@@ -75,7 +75,7 @@ public class AreasvEnterMotdTests
     }
 
     [Fact]
-    public async Task FirstMapEnter_SendsMotdAsSystemNotice()
+    public async Task FirstMapEnter_DoesNotSendMotdOnJuly2009EvenWhenEnabled()
     {
         var (connection, options) = TestDb.CreateInMemoryMainContext();
         try
@@ -98,7 +98,10 @@ public class AreasvEnterMotdTests
             );
 
             Assert.False(session.NeedsMotd);
-            AssertSystemNotice(session, "Welcome to AISP");
+            Assert.DoesNotContain(
+                session.Sent,
+                packet => packet.Type == PacketType.TalkForwardNotify
+            );
         }
         finally
         {
@@ -107,43 +110,7 @@ public class AreasvEnterMotdTests
     }
 
     [Fact]
-    public async Task FirstMapEnter_SendsLanguageSpecificMotd()
-    {
-        var (connection, options) = TestDb.CreateInMemoryMainContext();
-        try
-        {
-            var user = await SeedAsync(options, GameLanguage.Japanese);
-            var session = CreateMapSession(user);
-            session.NeedsMotd = true;
-            session.Language = GameLanguage.Japanese;
-            await using var runDb = new MainContext(options);
-            var handler = CreateMapEnterHandler(
-                runDb,
-                new SharedState(),
-                new MotdOptions
-                {
-                    Enabled = true,
-                    Message = "Welcome",
-                    Messages = { ["ja"] = "ようこそ" },
-                }
-            );
-
-            await handler.HandleAsync(
-                BuildMapEnterPayload(10990100, 1),
-                session,
-                TestContext.Current.CancellationToken
-            );
-
-            AssertSystemNotice(session, "ようこそ");
-        }
-        finally
-        {
-            await connection.DisposeAsync();
-        }
-    }
-
-    [Fact]
-    public async Task FirstMapEnter_SendsMotdOnMsgSessionWhenPresent()
+    public async Task FirstMapEnter_DoesNotSendMotdOnMsgSessionEither()
     {
         var (connection, options) = TestDb.CreateInMemoryMainContext();
         try
@@ -168,7 +135,7 @@ public class AreasvEnterMotdTests
             );
 
             Assert.DoesNotContain(area.Sent, packet => packet.Type == PacketType.TalkForwardNotify);
-            AssertSystemNotice(msg, "Hello");
+            Assert.DoesNotContain(msg.Sent, packet => packet.Type == PacketType.TalkForwardNotify);
         }
         finally
         {
@@ -397,18 +364,6 @@ public class AreasvEnterMotdTests
         );
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
         return user;
-    }
-
-    private static void AssertSystemNotice(CapturingPlayerSession session, string expected)
-    {
-        var notice = Assert.Single(
-            session.Sent,
-            packet => packet.Type == PacketType.TalkForwardNotify
-        );
-        var reader = new PacketReader(notice.Payload);
-        Assert.Equal(0u, reader.ReadUInt());
-        Assert.Equal(SystemNotice.DistId, reader.ReadUInt());
-        Assert.Equal($"{expected}\r\n", reader.ReadString("utf-8"));
     }
 
     private static byte[] BuildEnterPayload(uint userId, string otp)
