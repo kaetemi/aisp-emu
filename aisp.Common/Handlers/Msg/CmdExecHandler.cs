@@ -1001,7 +1001,8 @@ public class CmdExecHandler(
     private static readonly (
         ushort Id,
         string Name,
-        string Balloon,
+        string Profile,
+        string[] BalloonLines,
         ushort Upper,
         ushort Lower
     )[] AiPowerCatalog =
@@ -1009,21 +1010,30 @@ public class CmdExecHandler(
         (
             AiPowerCardData.VisualKomari,
             "月島小恋",
-            "えへへ、来てくれたんだ<BR>今日もがんばるね<BR>応援、よろしく！",
+            "158cm<BR>45kg<BR>82-56-84<BR>歌うこと<BR>早起き",
+            [
+                "えへへ、来てくれたんだ",
+                "今日もがんばるね",
+                "応援、よろしく！",
+                "えへへ",
+                "がんばるよ",
+            ],
             80,
             45
         ),
         (
             AiPowerCardData.VisualNanaka,
             "白河ななか",
-            "なーなかだよ！<BR>一緒に遊ぼ？<BR>ねっ、ねっ！",
+            "160cm<BR>48kg<BR>85-58-86<BR>みんな<BR>宿題",
+            ["なーなかだよ！", "一緒に遊ぼ？", "ねっ、ねっ！", "なーなか", "遊ぼうよ"],
             100,
             70
         ),
         (
             AiPowerCardData.VisualYume,
             "朝倉由夢",
-            "ふふ、どうしたの？<BR>わたしでよければ<BR>ちからになるよ",
+            "162cm<BR>47kg<BR>83-57-85<BR>読書<BR>人ごみ",
+            ["ふふ、どうしたの？", "わたしでよければ", "ちからになるよ", "ふふ", "まかせて"],
             55,
             30
         ),
@@ -1042,9 +1052,9 @@ public class CmdExecHandler(
             Param0 = entry.Upper,
             Param1 = entry.Lower,
             Param2 = 12,
-            ProfileFields = ["158cm", "45kg", "82-56-84", "あいすぺーす", "早起き"],
+            ProfileFields = entry.BalloonLines,
         };
-        card.SetBalloon(entry.Balloon);
+        card.SetBalloon(entry.Profile);
         return card;
     }
 

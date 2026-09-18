@@ -7,7 +7,8 @@ namespace aisp.Network.Data;
 /// <see cref="WireSize"/> bytes. <c>CAipowerCharaSheet</c> apply is <c>0x5d2320</c>:
 /// <see cref="Id"/> loads <c>./aipower/%05d.dds</c> (str_table 100,940,1); missing file hides the sheet.
 /// <see cref="Param0"/> / <see cref="Param1"/> are 0–100 gauge percents (heart pip = Param0/20).
-/// The 601-byte tail is a UTF-8 C string (code page 65001); <c>&lt;BR&gt;</c> splits balloon lines.
+/// The 601-byte tail is a UTF-8 C string (code page 65001); <c>&lt;BR&gt;</c> splits the five
+/// プロフィール rows. <see cref="ProfileFields"/> are balloon-line candidates (one is shown).
 /// </summary>
 public sealed class AiPowerCardData
 {
@@ -43,11 +44,11 @@ public sealed class AiPowerCardData
     /// <summary>Added into the upper gauge when a cheer tick overflows the lower gauge.</summary>
     public ushort Param2 { get; set; }
 
-    /// <summary>Height, weight, three-size, likes, dislikes (PAS 190–194).</summary>
+    /// <summary>Up to five balloon / 台詞 candidates. Apply <c>0x5d1bd0</c> picks one at random.</summary>
     public string[] ProfileFields { get; set; } = ["", "", "", "", ""];
     public byte[] Trailing { get; set; } = new byte[TrailingBytes];
 
-    /// <summary>UTF-8 balloon / 台詞 at the start of <see cref="Trailing"/>. Lines join with <see cref="BalloonLineBreak"/>.</summary>
+    /// <summary>UTF-8 プロフィール rows at the start of <see cref="Trailing"/>, joined with <see cref="BalloonLineBreak"/> (PAS 190–194).</summary>
     public string BalloonText
     {
         get

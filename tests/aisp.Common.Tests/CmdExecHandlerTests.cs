@@ -1759,10 +1759,16 @@ public class CmdExecHandlerTests
             Assert.Equal(80, card.Param0);
             Assert.Equal(45, card.Param1);
             Assert.Equal(
-                ["158cm", "45kg", "82-56-84", "あいすぺーす", "早起き"],
+                [
+                    "えへへ、来てくれたんだ",
+                    "今日もがんばるね",
+                    "応援、よろしく！",
+                    "えへへ",
+                    "がんばるよ",
+                ],
                 card.ProfileFields
             );
-            Assert.Contains("<BR>", card.BalloonText);
+            Assert.Contains("158cm<BR>", card.BalloonText);
             Assert.Equal(
                 AiPowerDataNotify.HeaderSize + AiPowerCardData.WireSize,
                 notify.Payload.Length
