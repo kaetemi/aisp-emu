@@ -117,13 +117,7 @@ public class AvatarDataTests
             5678u,
             BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(avatarTailOffset + sizeof(uint)))
         );
-        Assert.Equal(3, bytes[avatarTailOffset + 2 * sizeof(uint)]);
-        Assert.Equal(
-            "Testing",
-            UserStatusData
-                .FromBytes(bytes.AsSpan(avatarTailOffset + 2 * sizeof(uint) + sizeof(byte)))
-                .StatusText
-        );
+        Assert.Equal(avatarTailOffset + 2 * sizeof(uint), bytes.Length);
 
         var parsed = AvatarData.FromBytes(bytes);
         Assert.Equal(123u, parsed.AvatarId);
@@ -142,8 +136,5 @@ public class AvatarDataTests
         Assert.Equal(7u, parsed.ItemUseEffects[0].EffectType);
         Assert.Equal([301u, 302u, 303u, 304u, 305u], parsed.ItemUseEffects[0].Parameters);
         Assert.Equal(5678u, parsed.EmotionId);
-        Assert.Equal(3, parsed.RoboVoiceType);
-        Assert.Equal("Testing", parsed.UserStatus.StatusText);
-        Assert.Equal(6u, parsed.UserStatus.StatusIconId);
     }
 }

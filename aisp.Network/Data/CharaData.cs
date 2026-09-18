@@ -2,7 +2,8 @@ namespace aisp.Network.Data;
 
 public class CharaData(uint slotId, uint modelId, string name)
 {
-    public const int WireSize = 566;
+    /// <summary>July 2009 wire size. 20 bytes smaller than 2011 because TPS battle omits ability-modifier group 2.</summary>
+    public const int WireSize = 546;
     public const int EquipmentSlotCount = 30;
 
     public uint SlotId { get; set; } = slotId;

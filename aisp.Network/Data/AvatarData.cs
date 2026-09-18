@@ -2,8 +2,12 @@ namespace aisp.Network.Data;
 
 public sealed class AvatarData(uint avatarId, CharaData character)
 {
-    public const int WireSize = 928;
-    public const int ItemUseEffectCount = 8;
+    /// <summary>
+    /// July 2009 <c>0x719910</c> layout: avatar id + CharaData + 7 item-use effects + reserved + emotion.
+    /// The 2011 blob added an 8th effect, <c>RoboVoiceType</c>, and nested <c>UserStatus</c>.
+    /// </summary>
+    public const int WireSize = 817;
+    public const int ItemUseEffectCount = 7;
 
     public uint AvatarId { get; set; } = avatarId;
     public CharaData Character { get; set; } = character;
@@ -34,8 +38,6 @@ public sealed class AvatarData(uint avatarId, CharaData character)
             writer.Write(effect.ToBytes());
         writer.Write(ClientReserved);
         writer.Write(EmotionId);
-        writer.Write(RoboVoiceType);
-        writer.Write(UserStatus.ToBytes());
         return writer.ToBytes();
     }
 
@@ -59,8 +61,6 @@ public sealed class AvatarData(uint avatarId, CharaData character)
             ItemUseEffects = effects,
             ClientReserved = reader.ReadUInt(),
             EmotionId = reader.ReadUInt(),
-            RoboVoiceType = reader.ReadByte(),
-            UserStatus = UserStatusData.FromBytes(reader.ReadBytes(UserStatusData.WireSize)),
         };
     }
 }

@@ -47,7 +47,7 @@ public class RoboRepositoryTests
                 Assert.Equal(21u, entity.TpsBattleData.ActionProfileId);
                 Assert.Equal(24u, entity.TpsBattleData.HitPointsCurrent);
                 Assert.Equal(30, entity.Equipment.Count);
-                Assert.Equal(8, entity.ItemUseEffects.Count);
+                Assert.Equal(7, entity.ItemUseEffects.Count);
                 Assert.Equal(20, entity.TpsBattleData.BattleAbilities.Count);
                 Assert.Equal(5, entity.DistributedStatusPoints.Count);
             }
@@ -119,7 +119,7 @@ public class RoboRepositoryTests
                 await db.RoboEquipment.CountAsync(TestContext.Current.CancellationToken)
             );
             Assert.Equal(
-                8,
+                7,
                 await db.RoboItemUseEffects.CountAsync(TestContext.Current.CancellationToken)
             );
             Assert.Equal(

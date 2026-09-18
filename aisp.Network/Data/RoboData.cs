@@ -2,8 +2,12 @@ namespace aisp.Network.Data;
 
 public sealed class RoboData(uint roboId, CharaData character, uint state = 0)
 {
-    public const int WireSize = 961;
-    public const int ItemUseEffectCount = 8;
+    /// <summary>
+    /// July 2009 <c>0x719A70</c> layout. The 2011 blob added an 8th item-use effect and nested
+    /// <c>UserStatus</c> (53 bytes).
+    /// </summary>
+    public const int WireSize = 851;
+    public const int ItemUseEffectCount = 7;
     public const int DistributedStatusPointCount = 5;
 
     public uint RoboId { get; set; } = roboId;
@@ -61,7 +65,6 @@ public sealed class RoboData(uint roboId, CharaData character, uint state = 0)
         writer.Write(AvailableStatusPoints);
         foreach (var points in DistributedStatusPoints)
             writer.Write(points);
-        writer.Write(UserStatus.ToBytes());
         return writer.ToBytes();
     }
 
@@ -95,7 +98,6 @@ public sealed class RoboData(uint roboId, CharaData character, uint state = 0)
         };
         for (var i = 0; i < result.DistributedStatusPoints.Length; i++)
             result.DistributedStatusPoints[i] = reader.ReadUInt();
-        result.UserStatus = UserStatusData.FromBytes(reader.ReadBytes(UserStatusData.WireSize));
         return result;
     }
 }

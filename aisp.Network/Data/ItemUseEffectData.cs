@@ -1,8 +1,8 @@
 namespace aisp.Network.Data;
 
 /// <summary>
-/// The 37-byte <c>notify_use_item_t</c> value read by the client. AvatarData
-/// and RoboData each contain eight of these active item-effect slots.
+/// The 37-byte <c>notify_use_item_t</c> value read by the client. July 2009
+/// AvatarData and RoboData each contain seven of these active item-effect slots.
 /// </summary>
 public sealed class ItemUseEffectData
 {

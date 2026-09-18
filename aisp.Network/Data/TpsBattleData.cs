@@ -163,12 +163,13 @@ public sealed class CosplayProgressData
 }
 
 /// <summary>
-/// Complete 175-byte TPS combat state read by the client's
-/// <c>sub_798D80</c>.
+/// Complete 155-byte TPS combat state read by the July 2009 client's
+/// <c>0x719510</c>. The 2011 layout added a fourth ability-modifier group (20 extra bytes).
+/// <see cref="AbilityModifierType2"/> is kept in memory and in the Robo DB, but is not on the wire.
 /// </summary>
 public sealed class TpsBattleData
 {
-    public const int WireSize = 175;
+    public const int WireSize = 155;
 
     public HitPointData HitPoints { get; set; } = new();
     public StaminaData Stamina { get; set; } = new();
@@ -191,7 +192,6 @@ public sealed class TpsBattleData
         writer.Write(BaseAbilities.ToBytes());
         writer.Write(AbilityModifierType0.ToBytes());
         writer.Write(AbilityModifierType1.ToBytes());
-        writer.Write(AbilityModifierType2.ToBytes());
         writer.Write(StatusEffectFlags);
         writer.Write(ActionFlags);
         writer.Write(ActiveSkillId);
@@ -220,9 +220,6 @@ public sealed class TpsBattleData
                 reader.ReadBytes(BattleAbilityValues.WireSize)
             ),
             AbilityModifierType1 = BattleAbilityValues.FromBytes(
-                reader.ReadBytes(BattleAbilityValues.WireSize)
-            ),
-            AbilityModifierType2 = BattleAbilityValues.FromBytes(
                 reader.ReadBytes(BattleAbilityValues.WireSize)
             ),
             StatusEffectFlags = reader.ReadULong(),

@@ -95,10 +95,7 @@ public class RoboDataTests
             1u,
             BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(roboTailOffset + 2 * sizeof(uint)))
         );
-        Assert.Equal(
-            "Robo status",
-            UserStatusData.FromBytes(bytes.AsSpan(roboTailOffset + 7 * sizeof(uint))).StatusText
-        );
+        Assert.Equal(roboTailOffset + 7 * sizeof(uint), bytes.Length);
 
         var parsed = RoboData.FromBytes(bytes);
         Assert.Equal(101u, parsed.RoboId);
@@ -114,7 +111,5 @@ public class RoboDataTests
         Assert.Equal(404u, parsed.EmotionId);
         Assert.Equal(25u, parsed.AvailableStatusPoints);
         Assert.Equal([1u, 2u, 3u, 4u, 5u], parsed.DistributedStatusPoints);
-        Assert.Equal("Robo status", parsed.UserStatus.StatusText);
-        Assert.Equal(6u, parsed.UserStatus.StatusIconId);
     }
 }
