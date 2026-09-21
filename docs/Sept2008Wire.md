@@ -111,6 +111,23 @@ ESTABLISHED writers include `0x76bc01` / `0x76c41d` (→6) and `0x76bed1` (→7)
 
 Patching `0x692f80` to `return 1` on disk makes this exe `Initialize failed. [ Code : -1 ]` (likely a .text checksum) — do not patch the binary. Runtime IAT hooks after Initialize are fine (`sept2008/aisp-https-redirect.c`).
 
+## Avatar create info (live 2026-09-21)
+
+Empty `recv_get_avatar_data_r` (`0xB055`, 4 bytes, result 0) is accepted. The client then asks `send_get_avatar_create_info` `0x04F6` on the lobby connection (CProtoAuth, the same object that version-checked with extra=3). The 2009 five-list body (builds, faces, hair, colours, equip) is rejected: parser `0x6bb39f` calls vtable+0x5c with `(0x0d, 1)` and RSTs Msg. The make map `10900100` stays on screen with no doll and no `chrmake` widgets.
+
+`0xA5AD` on this build is four lists per gender, male then female. Counts above the max fail the parse. Bytes are packed with no alignment pad. The reader requires the cursor to land on the end.
+
+| | Male / female | Max | Doll use |
+| --- | --- | --- | --- |
+| Faces | byte | 4 | face id at doll+0x3c |
+| Hair bases | uint | 4 | |
+| Color offsets | byte | 5 | hair id = base + offset, doll+0x40 |
+| Equipment | uint id, uint socket | 29 | fixed 29 slots at +0x118 / +0x200 |
+
+Body models are not in the packet. Gender 1 spawns `1001011`, gender 2 spawns `1002011`. Hair bases `10920010`/`10920020`/`10920030`/`10920040` and `10930010` + 0x10 steps, plus offsets 0..4, match the catalog rows (ショート系 水色/茶/ピンク/金/黒 and the same step on the other three named styles).
+
+July 2009 inserted a leading build-uint list (max 3) and raised the equip cap to 30. Sessions whose version-check crc is `0x122646E7` extra 3 (or Auth `0xB35DC876` extra 2) get the four-list body. Anything else, including 2009 extra `0x03FA6EC0`, keeps the five-list body.
+
 ## Recv opcode presence (`cmp eax, imm32` vs 2009)
 
 C2S immediates are not stored as `push imm32` even on the 2009 exe, so a miss there is not evidence. Recv switch arms are.

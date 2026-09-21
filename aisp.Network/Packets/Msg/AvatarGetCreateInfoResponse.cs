@@ -66,4 +66,60 @@ public class AvatarGetCreateInfoResponse : IOutgoingPacket
 
         return writer.ToBytes();
     }
+
+    /// <summary>
+    /// September 2008 <c>recv_get_avatar_create_info_r</c> (<c>0xA5AD</c>, parser <c>0x6bb39f</c>).
+    /// Male then female, each: face bytes (max 4), hair-base uints (max 4), color-offset bytes (max 5),
+    /// equipment pairs (max 29). Body models are hardcoded (1001011 / 1002011). The doll hair id is
+    /// <c>base + color</c>, so 10920010 + 0..4 is one style's five colours.
+    /// </summary>
+    public byte[] ToSeptember2008Bytes()
+    {
+        byte[] faces = [0, 1, 2, 3];
+        byte[] colors = [0, 1, 2, 3, 4];
+        uint[] maleHair = [10920010, 10920020, 10920030, 10920040];
+        uint[] femaleHair = [10930010, 10930020, 10930030, 10930040];
+        ItemSlotInfo[] maleEquip =
+        [
+            new(10100140, 0),
+            new(10100190, 0),
+            new(10200130, 0),
+            new(10400030, 0),
+            new(10500070, 0),
+        ];
+        ItemSlotInfo[] femaleEquip =
+        [
+            new(10100060, 0),
+            new(10200090, 0),
+            new(10400000, 0),
+            new(10500010, 0),
+        ];
+
+        var writer = new PacketWriter();
+        WriteGender(writer, faces, maleHair, colors, maleEquip);
+        WriteGender(writer, faces, femaleHair, colors, femaleEquip);
+        return writer.ToBytes();
+    }
+
+    private static void WriteGender(
+        PacketWriter writer,
+        byte[] faces,
+        uint[] hairBases,
+        byte[] colorOffsets,
+        ItemSlotInfo[] equipment
+    )
+    {
+        writer.Write((uint)faces.Length);
+        foreach (var face in faces)
+            writer.Write(face);
+        writer.Write((uint)hairBases.Length);
+        foreach (var hair in hairBases)
+            writer.Write(hair);
+        writer.Write((uint)colorOffsets.Length);
+        foreach (var color in colorOffsets)
+            writer.Write(color);
+        writer.Write((uint)equipment.Length);
+        foreach (var equip in equipment)
+            writer.Write(equip.ToBytes());
+    }
 }

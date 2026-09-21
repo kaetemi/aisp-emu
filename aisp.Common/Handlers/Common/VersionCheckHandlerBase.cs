@@ -17,6 +17,7 @@ public abstract class VersionCheckHandlerBase : IPacketHandler
     )
     {
         var req = VersionCheckRequest.FromBytes(payload.Span);
+        ClientWireProfile.RememberVersionCheck(session, req.Minor, req.Version);
         var resp = new VersionCheckResponse(0, req.Major, req.Minor, req.Version);
         await session.SendAsync(ResponseType, resp.ToBytes(), ct);
     }

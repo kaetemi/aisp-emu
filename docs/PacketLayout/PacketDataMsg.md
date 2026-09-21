@@ -304,6 +304,8 @@
     (same for Female)
 ```
 
+September 2008 (`0x6bb39f`) has no build list. Male then female: face bytes (max 4), hair-base uints (max 4), color-offset bytes (max 5), equip pairs (max 29). Doll hair id is base + offset. See `docs/Sept2008Wire.md`.
+
 ## recv_get_avatar_data_r (AvatarGetDataResponse)
 
 - **Server:** Msg

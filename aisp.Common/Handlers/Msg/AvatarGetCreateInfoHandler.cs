@@ -19,6 +19,9 @@ public class AvatarGetCreateInfoHandler : IPacketHandler, IRequiresAuthenticated
     )
     {
         AvatarGetCreateInfoResponse resp = new();
-        await session.SendAsync(ResponseType, resp.ToBytes(), ct);
+        var payloadBytes = ClientWireProfile.IsSeptember2008(session)
+            ? resp.ToSeptember2008Bytes()
+            : resp.ToBytes();
+        await session.SendAsync(ResponseType, payloadBytes, ct);
     }
 }
