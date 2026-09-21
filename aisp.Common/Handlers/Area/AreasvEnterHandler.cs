@@ -39,11 +39,9 @@ public class AreasvEnterHandler(
 
         if (userSession is null || userSession.UserId != loginReq.UserID)
         {
-            // recv_enter_areasv_r is a fixed 8-byte read on the client (result + objId);
-            // a 4-byte body desyncs the record parser.
             await session.SendAsync(
                 ResponseType,
-                new AreasvEnterResponse((uint)AuthResponseResult.InvalidCredentials, 0).ToBytes(),
+                EnterResponseBody(session, (uint)AuthResponseResult.InvalidCredentials, 0),
                 ct
             );
             return;
@@ -57,7 +55,7 @@ public class AreasvEnterHandler(
         {
             await session.SendAsync(
                 ResponseType,
-                new AreasvEnterResponse((uint)AuthResponseResult.AccountBanned, 0).ToBytes(),
+                EnterResponseBody(session, (uint)AuthResponseResult.AccountBanned, 0),
                 ct
             );
             return;
@@ -67,7 +65,7 @@ public class AreasvEnterHandler(
         {
             await session.SendAsync(
                 ResponseType,
-                new AreasvEnterResponse((uint)AuthResponseResult.Failure, 0).ToBytes(),
+                EnterResponseBody(session, (uint)AuthResponseResult.Failure, 0),
                 ct
             );
             return;
@@ -232,7 +230,7 @@ public class AreasvEnterHandler(
         await characterRepo.TouchLastLoggedInAsync(chara.Id, ct);
         chara.LastLoggedInAt = DateTime.UtcNow;
 
-        await session.SendAsync(ResponseType, new AreasvEnterResponse(0, charId).ToBytes(), ct);
+        await session.SendAsync(ResponseType, EnterResponseBody(session, 0, charId), ct);
         try
         {
             await FriendNotifyHelper.NotifyLoginAsync(friendRepository, state, chara.Id, ct);
@@ -288,4 +286,14 @@ public class AreasvEnterHandler(
 
     public static UserStatusData UserStatusOf(Character cha) =>
         new() { StatusText = cha.UserStatusText, StatusIconId = cha.UserStatusIconId };
+
+    /// <summary>
+    /// 2009 and 2011 read result then objId. September 2008 reads the result
+    /// alone; the extra objId fails its consume check and the area socket closes.
+    /// </summary>
+    private static byte[] EnterResponseBody(IPlayerSession session, uint result, uint objId)
+    {
+        var packet = new AreasvEnterResponse(result, objId);
+        return ClientWireProfile.IsSeptember2008(session) ? packet.ToSeptember2008Bytes() : packet.ToBytes();
+    }
 }
