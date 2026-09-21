@@ -154,7 +154,7 @@ C2S immediates are not stored as `push imm32` even on the 2009 exe, so a miss th
 
 `recv_avatar_data` **`0x6747`** is in this exe. The switch does not compare it directly: after `cmp eax, 0x6587` / `jg`, it subtracts `0x6719` and then `0x2e`, and the fall-through (`0x6ba28b`, alloc `0x128`) is opcode `0x6747`. Wire: uint id, CString name (scan limit `0x25`), the 19-byte visual, uint island, uint slot, then 29 item ids. No model-id uint and no socket uint. The callback keeps the record only when slot is 0. `0x6587` is a different arm (`0x6ba18a`, alloc 4, one uint). A 152-byte body on `0x6587` fails that consume check and closes Msg.
 
-`recv_get_avatar_data_r` `0xB055` is still one uint, and only while the login scene state is `0x5A`: 0 moves to the maker (`0x578`), 100 moves to state `0x3E8`, anything else is the error state. Send the `0x6747` record first, then `0xB055`. Do not push the record from create; result 0 alone advances to the アンケート screen. The saved character is female `eina`, model `1002011`, face 2, hair `10930020`.
+`recv_get_avatar_data_r` `0xB055` is still one uint, and only while the login scene state is `0x5A`. Result 0 enters state `0x578`: if scene+0x5c is still -1 the maker opens, and if the preceding `0x6747` record stored slot 0 there the stored character is shown. Result 100 forces the maker (state `0x3E8`, which asks for the create catalog) even when a record was stored. Send the record, then result 0. Do not push the record from create; that result 0 alone advances to the アンケート screen. The saved character is female `eina`, model `1002011`, face 2, hair `10930020`.
 
 ## MOTD
 

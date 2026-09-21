@@ -47,6 +47,14 @@ public static class ClientWireProfile
     /// </summary>
     public const PacketType September2008AvatarRecord = PacketType.AvatarDataResponse;
 
-    public const uint September2008AvatarListEmpty = 0;
-    public const uint September2008AvatarListReady = 100;
+    /// <summary>
+    /// <c>recv_get_avatar_data_r</c> while the login scene is in state <c>0x5A</c>.
+    /// 0 enters state <c>0x578</c>, which shows a stored record or opens the maker
+    /// when scene+0x5c is still -1. 100 forces the maker (state <c>0x3E8</c>).
+    /// </summary>
+    public const uint September2008AvatarListShowRecord = 0;
+
+    public const uint September2008AvatarListForceMaker = 100;
+
+    public const uint September2008AvatarListEmpty = September2008AvatarListShowRecord;
 }

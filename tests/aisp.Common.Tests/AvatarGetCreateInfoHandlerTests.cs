@@ -145,6 +145,6 @@ public class AvatarGetCreateInfoHandlerTests
         Assert.Equal(10_100_060u, reader.ReadUInt());
         Assert.Equal(28 * 4, reader.Remaining);
         Assert.Equal(PacketType.AvatarGetDataResponse, session.Sent[1].Type);
-        Assert.Equal(100u, new PacketReader(session.Sent[1].Payload).ReadUInt());
+        Assert.Equal(0u, new PacketReader(session.Sent[1].Payload).ReadUInt());
     }
 }

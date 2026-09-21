@@ -30,13 +30,12 @@ public class AvatarGetDataHandler(
     {
         if (ClientWireProfile.IsSeptember2008(session))
         {
-            // 0x6747 is this build's avatar record, reached by subtracting 0x6719
-            // and 0x2e from the opcode rather than a direct compare. The body has
-            // no model id and 29 item ids. 0x6587 is a different 4-byte packet;
-            // a long body there fails the consume check and closes Msg.
-            // 0xB055 then moves the login scene: 0 to the maker, 100 to state 0x3E8.
-            var ready = session.User!.Characters.Count != 0;
-            if (ready)
+            // 0x6747 is this build's avatar record (switch subtracts 0x6719 then
+            // 0x2e). No model id, 29 item ids. 0x6587 is a different 4-byte packet.
+            // The record overwrites scene+0x5c (initialized to -1). 0xB055 result 0
+            // then enters state 0x578, which shows that record. Result 100 forces
+            // the maker even when a record was stored.
+            if (session.User!.Characters.Count != 0)
             {
                 var record = CreateDataResponse(session.User.Characters.First(), 0);
                 await session.SendAsync(
@@ -46,12 +45,9 @@ public class AvatarGetDataHandler(
                 );
             }
 
-            var listResult = ready
-                ? ClientWireProfile.September2008AvatarListReady
-                : ClientWireProfile.September2008AvatarListEmpty;
             await session.SendAsync(
                 PacketType.AvatarGetDataResponse,
-                new AvatarGetDataResponse(listResult).ToBytes(),
+                new AvatarGetDataResponse(ClientWireProfile.September2008AvatarListEmpty).ToBytes(),
                 ct
             );
             return;
