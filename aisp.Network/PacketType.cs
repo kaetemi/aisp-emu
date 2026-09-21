@@ -4468,6 +4468,7 @@ public enum PacketType : ushort
         "recv_robo_rest_r",
         ImplementationState.NotImplemented
     )]
+    // September 2008 area recv uses this value as recv_notify_change_map (98-byte body).
     RoboRestResponse = 0xB235,
 
     [PacketMetadata(

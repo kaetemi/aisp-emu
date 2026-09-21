@@ -148,7 +148,9 @@ C2S immediates are not stored as `push imm32` even on the 2009 exe, so a miss th
 | `recv_notify_change_myroom` | `0x0FA0` | present | present |
 | `recv_notify_change_map_failed` | `0x6648` | present | present |
 
-`NotifyChangeMap` `0xB315` is the first confirmed Area recv hole versus July 2009. Map enter will RST or ignore until the 2008 opcode and layout are found.
+`recv_notify_change_map` on this exe is opcode **`0xB235`** (area parser `0x6a8663`, alloc `0x68`), not `0xB315`. The body is the 98-byte July 2009 layout: 30-byte route, fade byte, port uint16, 65-byte IP. `0xB315` is absent. 2011 reused `0xB235` as `recv_robo_rest_r`. Area version-check is extra 2, crc `0x9E57B1E4` (`0x693792`). `recv_notify_maplink_data` `0x5755` is present (25 bytes, same as the 2011 reader). `recv_notify_select_map` `0x68A5` is absent.
+
+`recv_avatar_create_r` `0x788F` is one uint (parser `0x6ba77b`, alloc 4). Result 0 continues; any other result raises the error dialog. `recv_avatar_data` `0x6747` does not occur in the exe, so it is not pushed after create. `recv_get_avatar_data_r` `0xB055` is also one uint.
 
 ## MOTD
 

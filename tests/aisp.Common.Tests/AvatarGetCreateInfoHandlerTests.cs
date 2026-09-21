@@ -59,4 +59,13 @@ public class AvatarGetCreateInfoHandlerTests
         Assert.Equal(3u, BinaryPrimitives.ReadUInt32LittleEndian(create.Payload));
         Assert.Equal(1001021u, BinaryPrimitives.ReadUInt32LittleEndian(create.Payload.AsSpan(4)));
     }
+
+    [Fact]
+    public void AreaVersionCheck_Uses2008ChangeMapOpcode()
+    {
+        var session = new CapturingPlayerSession();
+        ClientWireProfile.RememberVersionCheck(session, ClientWireProfile.September2008AreaCrc, 2);
+        Assert.Equal(PacketType.RoboRestResponse, ClientWireProfile.NotifyChangeMapOpcode(session));
+        Assert.Equal(0xB235, (ushort)ClientWireProfile.NotifyChangeMapOpcode(session));
+    }
 }

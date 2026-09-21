@@ -836,7 +836,11 @@ public sealed class DirectMapLinkTransitionService(
             }
             else
             {
-                await session.SendAsync(PacketType.NotifyChangeMap, notifyChangeMap.ToBytes(), ct);
+                await session.SendAsync(
+                    ClientWireProfile.NotifyChangeMapOpcode(session),
+                    notifyChangeMap.ToBytes(),
+                    ct
+                );
             }
         }
     }

@@ -118,10 +118,17 @@ public class AvatarCreateHandler(
 
         await moderationService.SyncModeratorsCircleForUserAsync(session.User.Id, ct);
 
-        // The new-character client flow does not issue another AvatarGetDataRequest.
-        // Populate its selected slot before Enquete completion leads directly to select_avatar.
-        var avatarData = AvatarGetDataHandler.CreateDataResponse(hydratedCharacter, request.slotId);
-        await session.SendAsync(PacketType.AvatarDataResponse, avatarData.ToBytes(), ct);
+        // 2009 does not ask for the avatar list again, so the record is pushed as
+        // recv_avatar_data 0x6747. That opcode is absent from the 2008 exe; the
+        // create result alone (0x788F, one uint) is what that client reads.
+        if (!ClientWireProfile.IsSeptember2008(session))
+        {
+            var avatarData = AvatarGetDataHandler.CreateDataResponse(
+                hydratedCharacter,
+                request.slotId
+            );
+            await session.SendAsync(PacketType.AvatarDataResponse, avatarData.ToBytes(), ct);
+        }
 
         return new AvatarCreateResponse(0);
     }
