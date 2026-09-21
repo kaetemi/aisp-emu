@@ -12,15 +12,29 @@ public class AvatarCreateRequest : IIncomingPacket<AvatarCreateRequest>
     public static AvatarCreateRequest FromBytes(ReadOnlySpan<byte> data)
     {
         var reader = new PacketReader(data);
-        var createRequest = new AvatarCreateRequest
+        var name = reader.ReadString("utf-8");
+        // September 2008 has no model id. The 19-byte visual's gender selects the
+        // hardcoded body (1 -> 1001011, 2 -> 1002011). 2009/2011 send modelId first.
+        uint modelId;
+        CharaVisual visual;
+        if (reader.Remaining == 23)
         {
-            AvatarName = reader.ReadString("utf-8"),
-            modelId = reader.ReadUInt(),
-            visual = CharaVisual.FromBytes(reader.ReadBytes(19)),
+            visual = CharaVisual.FromBytes(reader.ReadBytes(19));
+            modelId = visual.Gender == 1 ? 1001011u : 1002011u;
+        }
+        else
+        {
+            modelId = reader.ReadUInt();
+            visual = CharaVisual.FromBytes(reader.ReadBytes(19));
+        }
+
+        return new AvatarCreateRequest
+        {
+            AvatarName = name,
+            modelId = modelId,
+            visual = visual,
             slotId = reader.ReadUInt(),
         };
-
-        return createRequest;
     }
 
     public override string ToString()

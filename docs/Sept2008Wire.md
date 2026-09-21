@@ -128,6 +128,8 @@ Body models are not in the packet. Gender 1 spawns `1001011`, gender 2 spawns `1
 
 July 2009 inserted a leading build-uint list (max 3) and raised the equip cap to 30. Sessions whose version-check crc is `0x122646E7` extra 3 (or Auth `0xB35DC876` extra 2) get the four-list body. Anything else, including 2009 extra `0x03FA6EC0`, keeps the five-list body.
 
+`これでよし！` on the maker plays the local intro train, then the profile sheet (名前 / 誕生日 / 血液型). `send_avatar_create` `0x29A4` is name, the same 19-byte `CharaVisual`, and slot. There is no model-id uint in front. Gender 2 is the female body `1002011`. A captured create (`eina`, 9/8, blood A, face 2, hair `10930020`, slot 0) is 28 bytes. Reading a model id first consumes the visual and the slot read fails.
+
 ## Recv opcode presence (`cmp eax, imm32` vs 2009)
 
 C2S immediates are not stored as `push imm32` even on the 2009 exe, so a miss there is not evidence. Recv switch arms are.
