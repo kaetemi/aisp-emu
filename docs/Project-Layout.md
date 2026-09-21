@@ -15,6 +15,7 @@ aisp-emu/
 │   ├── PacketLayout/                    #  Packet notes by domain
 │   ├── CharacterBattleData.md           # Nested CharaData battle record vs 2011 TPS mode
 │   ├── July2009Wire.md                  # No MOTD on 2009; 98-byte NotifyChangeMap
+│   ├── Sept2008Wire.md                  # Pre-launch build 0x09; NotifyChangeMap 0xB315 absent
 │   ├── aisp-decompiled.c                # Decompiled original client code
 │   ├── aisp-decompiled-packet-llm-guide.md
 │   └── *.frida.js                       # Frida instrumentation scripts

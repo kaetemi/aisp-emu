@@ -138,9 +138,13 @@ The generic base class `PacketHandlerBase<TRequest, TResponse>` deserializes the
 
 See `docs/Project-Layout.md` for a deeper architecture walkthrough, `docs/Encryption.md` / `docs/PacketLayout/` for packet-level details, and `docs/CharacterBattleData.md` for the nested `CharaData` battle record versus 2011-only TPS mode.
 
-## July 2009 wire (this branch)
+## July 2009 wire (`experimental/july2009`)
 
 See `docs/July2009Wire.md`. MOTD is **not sent** (2009 has no System/Notice UI; TalkForward abort at `0x42642d`). `NotifyChangeMap` is **98** bytes (FadeFlag before ServerInfo, no Flag byte). The 2011 99-byte layout kicks maplinks to login.
+
+## September 2008 wire (this branch)
+
+See `docs/Sept2008Wire.md`. Pre-launch `ai sp@ce.exe` 2008-09-16, build **0x09**. Parent is `experimental/july2009`. Login is ログインID (not niconico email). `recv_notify_change_map` `0xB315` is **absent** from this exe. Display `:94`, prefix `/mnt/amber/aispace/sept2008/`, scripts `scripts/sept2008/`. Do not mix with `:95`/`:96`/`:97`. MOTD left off until DistId mapping is proven.
 
 ## Decompiled client reference (`localDocs/aisp-decompiled.c`)
 
