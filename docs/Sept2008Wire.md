@@ -15,9 +15,9 @@ Official service launch was 2008-10-15. This client is pre-launch. Login UI is �
 | Notes | `/mnt/amber/aispace/www/sept2008/` |
 | Docker | `aisp-sept2008-server` on **60050/60052/60054** and HTTP **8081** (2009 keeps 50050) |
 
-Do not inject the 2011-era `aisp.launch.exe` that shipped in the RAR. Launch `ai sp@ce.exe ./data` until `aisp.hook` addresses are retargeted.
+Do not inject the 2011-era `aisp.launch.exe` that shipped in the RAR. `scripts/sept2008/run.sh` starts the exe through `aisp.attach.exe` so `aisp.hook.dll` loads. The July 2009 TV and upload-slot patches still check their own bytes and stay off on this exe.
 
-The 2008 exe does **not** read `connection.txt` (that file is aisp.launch / aisp.hook). Direct launch connects to leftover production Auth on **`119.75.227.0/24`**, seen as **`119.75.227.142:50050`** and **`119.75.227.141:50051`**. `sept2008/aisp-redirect-connect.so` is `LD_PRELOAD`'d into **wineserver64 only** (a 64-bit .so on the 32-bit wine process is ignored and can skip the wineserver socket path) and maps that /24 to `127.0.0.1`, with 50050/50051→60050, 50052/50053→60052, 50054/50055→60054 so the July 2009 server can stay on 50050.
+The 2008 exe does not open `connection.txt` itself. `aisp.hook` reads it and replaces the string-table auth host (`0x640FAA1B` / `0x640FAA1D`) and port (`0x640FAA1C` / `0x640FAA1E`), so the same file the launcher writes for every client is what this exe connects with. The local file uses `127.0.0.1` port **60050**. Msg and area addresses still come back from the server.
 
 ## Auth version check (live 2026-09-21)
 
@@ -101,15 +101,15 @@ State 4 then calls `0x60ce70` → `0x61b370`, which is WinINet, not VCE:
 
 That is `https://secure.nicovideo.jp/secure/login` (`Content-Type: application/x-www-form-urlencoded`). Body is written with `InternetWriteFile`; status via `HttpQueryInfoW` (`HTTP_QUERY_STATUS_CODE`); body via `InternetReadFile` into `0x61b310`. The body is XML: first element `status` attribute `ok`/`fail`, child `ticket` on success, `error`/`code` on fail.
 
-`scripts/sept2008/run.sh` LD_PRELOADs 32-bit `aisp-https-redirect.so` into the wine process (not wineserver64). It rewrites `nicovideo`/`niconico` hosts to `AISP_NICO_LOGIN_HOST`:`AISP_NICO_LOGIN_PORT` (default `127.0.0.1:8081`) and strips `INTERNET_FLAG_SECURE` so Wine talks HTTP to the emulator.
+`aisp.hook` replaces string `0x640FAA64` with the upload host and `0x640FAA03` with `<upload directory>/secure/login`, then the WinINet hooks send that connect to the host's port with the secure flag off.
 
-Live POST body: `site=aispace&mail=<login-id>&password=<password>`. `POST /secure/login` returns XML with `status="ok"` and `<ticket>` equal to `mail`, because `send_authenticate` `0xF24B` is `<ticket>\0<password>\0`.
+Live POST body: `site=aispace&mail=<login-id>&password=<password>`. The hook sends that POST to the upload host from `connection.txt` (line 6, optional `:port`) at `<upload directory>/secure/login`, next to `upload.php`. The local file uses `127.0.0.1:8081` and `ai-sp/upload.php`, so the request is `POST /ai-sp/secure/login`. The reply is XML with `status="ok"` and `<ticket>` equal to `mail`, because `send_authenticate` `0xF24B` is `<ticket>\0<password>\0`.
 
 Failures in WinINet set error 1–9 and `0x60ce70` returns 0 → E000. A hardcoded ticket of `local` reaches `0xF24B` but Auth looks up user `local` and the client shows 「サーバーからエラーが返されました。(2)」. 2009 dropped this HTTP step (niconico is the launcher).
 
 ESTABLISHED writers include `0x76bc01` / `0x76c41d` (→6) and `0x76bed1` (→7). iCryptSession keyex lives at `+0x1e8` (`KEYEX_*`); GetState does not read it.
 
-Patching `0x692f80` to `return 1` on disk makes this exe `Initialize failed. [ Code : -1 ]` (likely a .text checksum) — do not patch the binary. Runtime IAT hooks after Initialize are fine (`sept2008/aisp-https-redirect.c`).
+Patching `0x692f80` to `return 1` on disk makes this exe `Initialize failed. [ Code : -1 ]` (likely a .text checksum) — do not patch the binary. The hook detours the string lookup and the WinINet imports after the process is up.
 
 ## Avatar create info (live 2026-09-21)
 

@@ -19,23 +19,22 @@ internal static class HttpEndpointsExtensions
         return $"<?xml version=\"1.0\" encoding=\"UTF-8\"?><nicovideo_user_response status=\"ok\"><ticket>{safe}</ticket></nicovideo_user_response>";
     }
 
+    private static async Task<IResult> NicoSecureLoginAsync(HttpRequest request, ILoggerFactory loggerFactory)
+    {
+        var log = loggerFactory.CreateLogger("NicoSecureLogin");
+        var form = await request.ReadFormAsync();
+        var mail = form["mail"].ToString();
+        log.LogInformation("niconico login site={Site} mail={Mail} path={Path}", form["site"].ToString(), mail, request.Path);
+        return Results.Text(NicoUserResponseOk(mail), "text/xml; charset=utf-8");
+    }
+
     internal static WebApplication MapAispEmuHttpEndpoints(this WebApplication app)
     {
-        app.MapPost(
-            "/secure/login",
-            async (HttpRequest request, ILoggerFactory loggerFactory) =>
-            {
-                var log = loggerFactory.CreateLogger("NicoSecureLogin");
-                var form = await request.ReadFormAsync();
-                var mail = form["mail"].ToString();
-                log.LogInformation(
-                    "niconico login site={Site} mail={Mail}",
-                    form["site"].ToString(),
-                    mail
-                );
-                return Results.Text(NicoUserResponseOk(mail), "text/xml; charset=utf-8");
-            }
-        );
+        // The 2008 client asks for secure/login. The hook sends that to the upload
+        // host under the same directory as upload.php, which is /ai-sp/secure/login.
+        app.MapPost("/secure/login", NicoSecureLoginAsync);
+        app.MapPost("/ai-sp/secure/login", NicoSecureLoginAsync);
+        app.MapPost("/ai-sp/dev/secure/login", NicoSecureLoginAsync);
 
         app.MapHealthChecks("/health");
         app.MapGet(
