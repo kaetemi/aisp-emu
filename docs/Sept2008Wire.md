@@ -99,11 +99,17 @@ State 4 then calls `0x60ce70` → `0x61b370`, which is WinINet, not VCE:
 | `InternetConnectW` | host **`secure.nicovideo.jp`** port **443** service 3 (HTTP) |
 | `HttpOpenRequestW` | verb **`POST`** path **`secure/login`** flags `0x4800000` (`INTERNET_FLAG_SECURE\|NO_CACHE_WRITE`) |
 
-That is `https://secure.nicovideo.jp/secure/login`. Body is written with `InternetWriteFile`; status via `HttpQueryInfoW` (`HTTP_QUERY_STATUS_CODE`); body via `InternetReadFile` into `0x61b310`. Failures set error 1–9 and `0x60ce70` returns 0 → `0x60c8e0` / Close → E000 「サーバーに接続できませんでした」. 2009 dropped this HTTP step (niconico is the launcher). Local emulator must stub this HTTPS POST (or the string-table host) before `0xF24B` will go out.
+That is `https://secure.nicovideo.jp/secure/login` (`Content-Type: application/x-www-form-urlencoded`). Body is written with `InternetWriteFile`; status via `HttpQueryInfoW` (`HTTP_QUERY_STATUS_CODE`); body via `InternetReadFile` into `0x61b310`. The body is XML: first element `status` attribute `ok`/`fail`, child `ticket` on success, `error`/`code` on fail.
+
+`scripts/sept2008/run.sh` LD_PRELOADs 32-bit `aisp-https-redirect.so` into the wine process (not wineserver64). It rewrites `nicovideo`/`niconico` hosts to `AISP_NICO_LOGIN_HOST`:`AISP_NICO_LOGIN_PORT` (default `127.0.0.1:8081`) and strips `INTERNET_FLAG_SECURE` so Wine talks HTTP to the emulator.
+
+Live POST body: `site=aispace&mail=<login-id>&password=<password>`. `POST /secure/login` returns XML with `status="ok"` and `<ticket>` equal to `mail`, because `send_authenticate` `0xF24B` is `<ticket>\0<password>\0`.
+
+Failures in WinINet set error 1–9 and `0x60ce70` returns 0 → E000. A hardcoded ticket of `local` reaches `0xF24B` but Auth looks up user `local` and the client shows 「サーバーからエラーが返されました。(2)」. 2009 dropped this HTTP step (niconico is the launcher).
 
 ESTABLISHED writers include `0x76bc01` / `0x76c41d` (→6) and `0x76bed1` (→7). iCryptSession keyex lives at `+0x1e8` (`KEYEX_*`); GetState does not read it.
 
-Patching `0x692f80` to `return 1` on disk makes this exe `Initialize failed. [ Code : -1 ]` (likely a .text checksum) — do not patch the binary. A runtime `LD_PRELOAD` hook after Initialize is fine for diagnostics (`sept2008/aisp-getstate-hook.c`).
+Patching `0x692f80` to `return 1` on disk makes this exe `Initialize failed. [ Code : -1 ]` (likely a .text checksum) — do not patch the binary. Runtime IAT hooks after Initialize are fine (`sept2008/aisp-https-redirect.c`).
 
 ## Recv opcode presence (`cmp eax, imm32` vs 2009)
 

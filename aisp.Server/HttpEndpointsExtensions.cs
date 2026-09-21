@@ -10,8 +10,33 @@ namespace aisp.Server;
 
 internal static class HttpEndpointsExtensions
 {
+    // 2008 client POSTs here after extra=2 version-check (WinINet, originally https://secure.nicovideo.jp/secure/login).
+    // send_authenticate 0xF24B then sends <ticket>\0<password>\0, so the ticket must be the login id.
+    internal static string NicoUserResponseOk(string ticket)
+    {
+        var safe = string.IsNullOrWhiteSpace(ticket) ? "local" : ticket;
+        safe = System.Security.SecurityElement.Escape(safe) ?? safe;
+        return $"<?xml version=\"1.0\" encoding=\"UTF-8\"?><nicovideo_user_response status=\"ok\"><ticket>{safe}</ticket></nicovideo_user_response>";
+    }
+
     internal static WebApplication MapAispEmuHttpEndpoints(this WebApplication app)
     {
+        app.MapPost(
+            "/secure/login",
+            async (HttpRequest request, ILoggerFactory loggerFactory) =>
+            {
+                var log = loggerFactory.CreateLogger("NicoSecureLogin");
+                var form = await request.ReadFormAsync();
+                var mail = form["mail"].ToString();
+                log.LogInformation(
+                    "niconico login site={Site} mail={Mail}",
+                    form["site"].ToString(),
+                    mail
+                );
+                return Results.Text(NicoUserResponseOk(mail), "text/xml; charset=utf-8");
+            }
+        );
+
         app.MapHealthChecks("/health");
         app.MapGet(
             "/healthz",
