@@ -118,21 +118,12 @@ public class AvatarCreateHandler(
 
         await moderationService.SyncModeratorsCircleForUserAsync(session.User.Id, ct);
 
-        if (ClientWireProfile.IsSeptember2008(session))
-        {
-            // Slot 0 is the only record this client keeps. 0x6747 is not in the exe.
-            // The create result (0x788F) still follows and closes the maker.
-            var record = AvatarGetDataHandler.CreateDataResponse(hydratedCharacter, 0);
-            await session.SendAsync(
-                ClientWireProfile.September2008AvatarRecord,
-                record.ToSeptember2008Bytes(),
-                ct
-            );
-        }
-        else
+        if (!ClientWireProfile.IsSeptember2008(session))
         {
             // 2009 does not ask for the avatar list again, so the record is pushed as
-            // recv_avatar_data 0x6747.
+            // recv_avatar_data 0x6747. 2008 has no 0x6747. Pushing 0x6587 here is also
+            // wrong: that handler is not enabled until the client asks for the list,
+            // and an unsolicited record closes Msg. Result 0 alone advances to the survey.
             var avatarData = AvatarGetDataHandler.CreateDataResponse(
                 hydratedCharacter,
                 request.slotId
