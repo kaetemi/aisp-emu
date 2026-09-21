@@ -15,7 +15,7 @@ Official service launch was 2008-10-15. This client is pre-launch. Login UI is ã
 | Notes | `/mnt/amber/aispace/www/sept2008/` |
 | Docker | `aisp-sept2008-server` on **60050/60052/60054** and HTTP **8081** (2009 keeps 50050) |
 
-Do not inject the 2011-era `aisp.launch.exe` that shipped in the RAR. `scripts/sept2008/run.sh` starts the exe through `aisp.attach.exe` so `aisp.hook.dll` loads. The July 2009 TV and upload-slot patches still check their own bytes and stay off on this exe.
+Do not inject the 2011-era `aisp.launch.exe` that shipped in the RAR (parked as `aisp.launch.exe.2011-era`). `scripts/sept2008/run.sh` starts the current `aisp.launch.exe`, the same way the July 2009 client does. Local is preselected: auth `127.0.0.1:60050`, upload host `127.0.0.1:8081`, path `ai-sp/upload.php`. Start Game writes `connection.txt` and injects `aisp.hook.dll`. The July 2009 TV and upload-slot patches still check their own bytes and stay off on this exe.
 
 The 2008 exe does not open `connection.txt` itself. `aisp.hook` reads it and replaces the string-table auth host (`0x640FAA1B` / `0x640FAA1D`) and port (`0x640FAA1C` / `0x640FAA1E`), so the same file the launcher writes for every client is what this exe connects with. The local file uses `127.0.0.1` port **60050**. Msg and area addresses still come back from the server.
 
