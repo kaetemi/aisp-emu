@@ -118,11 +118,21 @@ public class AvatarCreateHandler(
 
         await moderationService.SyncModeratorsCircleForUserAsync(session.User.Id, ct);
 
-        // 2009 does not ask for the avatar list again, so the record is pushed as
-        // recv_avatar_data 0x6747. That opcode is absent from the 2008 exe; the
-        // create result alone (0x788F, one uint) is what that client reads.
-        if (!ClientWireProfile.IsSeptember2008(session))
+        if (ClientWireProfile.IsSeptember2008(session))
         {
+            // Slot 0 is the only record this client keeps. 0x6747 is not in the exe.
+            // The create result (0x788F) still follows and closes the maker.
+            var record = AvatarGetDataHandler.CreateDataResponse(hydratedCharacter, 0);
+            await session.SendAsync(
+                ClientWireProfile.September2008AvatarRecord,
+                record.ToSeptember2008Bytes(),
+                ct
+            );
+        }
+        else
+        {
+            // 2009 does not ask for the avatar list again, so the record is pushed as
+            // recv_avatar_data 0x6747.
             var avatarData = AvatarGetDataHandler.CreateDataResponse(
                 hydratedCharacter,
                 request.slotId

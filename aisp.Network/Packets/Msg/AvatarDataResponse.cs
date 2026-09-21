@@ -51,4 +51,22 @@ public class AvatarDataResponse(
             writer.Write(equip.ToBytes());
         return writer.ToBytes();
     }
+
+    /// <summary>
+    /// September 2008 lobby record (opcode <c>0x6587</c>, parser <c>0x6ba18a</c>).
+    /// No model-id uint. The visual is the same 19 bytes as create. Slot must be 0
+    /// or the client drops the record. Equipment is 29 item ids, not id/socket pairs.
+    /// </summary>
+    public byte[] ToSeptember2008Bytes()
+    {
+        var writer = new PacketWriter();
+        writer.Write(avatarId);
+        writer.Write(name, 0x24, "utf-8");
+        writer.Write(Visual.ToBytes());
+        writer.Write(islandId);
+        writer.Write(slotId);
+        for (var slot = 0; slot < 29; slot++)
+            writer.Write(slot < Equips.Count ? Equips[slot].ItemId : 0u);
+        return writer.ToBytes();
+    }
 }

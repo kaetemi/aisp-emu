@@ -39,4 +39,15 @@ public static class ClientWireProfile
     /// </summary>
     public static PacketType NotifyChangeMapOpcode(IPlayerSession session) =>
         IsSeptember2008(session) ? PacketType.RoboRestResponse : PacketType.NotifyChangeMap;
+
+    /// <summary>
+    /// 2008 lobby avatar record. Parser <c>0x6ba18a</c> reads it and keeps slot 0.
+    /// <see cref="PacketType.AvatarGetDataResponse"/> then carries 0 (open the maker)
+    /// or 100 (open character select). 2011 reused this opcode as
+    /// <see cref="PacketType.AvatarDestroyResponse"/>. <c>0x6747</c> is not in the exe.
+    /// </summary>
+    public const PacketType September2008AvatarRecord = PacketType.AvatarDestroyResponse;
+
+    public const uint September2008AvatarListEmpty = 0;
+    public const uint September2008AvatarListReady = 100;
 }

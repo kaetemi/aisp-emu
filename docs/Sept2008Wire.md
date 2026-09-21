@@ -150,7 +150,9 @@ C2S immediates are not stored as `push imm32` even on the 2009 exe, so a miss th
 
 `recv_notify_change_map` on this exe is opcode **`0xB235`** (area parser `0x6a8663`, alloc `0x68`), not `0xB315`. The body is the 98-byte July 2009 layout: 30-byte route, fade byte, port uint16, 65-byte IP. `0xB315` is absent. 2011 reused `0xB235` as `recv_robo_rest_r`. Area version-check is extra 2, crc `0x9E57B1E4` (`0x693792`). `recv_notify_maplink_data` `0x5755` is present (25 bytes, same as the 2011 reader). `recv_notify_select_map` `0x68A5` is absent.
 
-`recv_avatar_create_r` `0x788F` is one uint (parser `0x6ba77b`, alloc 4). Result 0 continues; any other result raises the error dialog. `recv_avatar_data` `0x6747` does not occur in the exe, so it is not pushed after create. `recv_get_avatar_data_r` `0xB055` is also one uint.
+`recv_avatar_create_r` `0x788F` is one uint (parser `0x6ba77b`, alloc 4). Result 0 closes the maker. The name-in-use and blocked-name strings are selected only for results `0xFFFFFF90` and `0xFFFFFF8F`; any other nonzero result shows 「アバター作成に失敗しました」. `recv_avatar_data` `0x6747` does not occur in the exe. An unknown lobby opcode is handed to `0x6b82e0`, which reports error `0x61` unless the body begins with word `0xC202`, so `0x6747` must not be sent.
+
+The lobby avatar record on this build is opcode **`0x6587`** (parser `0x6ba18a`, alloc `0x128`). 2011 reused that value as `recv_avatar_destroy_r`. Wire: uint id, CString name (scan limit `0x25`), the 19-byte visual, uint island, uint slot, then 29 item ids. The callback keeps the record only when slot is 0. `recv_get_avatar_data_r` `0xB055` is still one uint, and only while the login scene state is `0x5A`: 0 moves to the maker (`0x578`), 100 moves to character select (`0x3E8`), anything else is the error state. Send the `0x6587` record first, then `0xB055`.
 
 ## MOTD
 

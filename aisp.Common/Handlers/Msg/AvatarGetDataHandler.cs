@@ -28,6 +28,32 @@ public class AvatarGetDataHandler(
         CancellationToken ct = default
     )
     {
+        if (ClientWireProfile.IsSeptember2008(session))
+        {
+            // 0x6747 is not in this exe. The record is 0x6587, then 0xB055:
+            // 0 opens the maker, 100 opens character select. Any other value is an error.
+            var ready = session.User!.Characters.Count != 0;
+            if (ready)
+            {
+                var record = CreateDataResponse(session.User.Characters.First(), 0);
+                await session.SendAsync(
+                    ClientWireProfile.September2008AvatarRecord,
+                    record.ToSeptember2008Bytes(),
+                    ct
+                );
+            }
+
+            var listResult = ready
+                ? ClientWireProfile.September2008AvatarListReady
+                : ClientWireProfile.September2008AvatarListEmpty;
+            await session.SendAsync(
+                PacketType.AvatarGetDataResponse,
+                new AvatarGetDataResponse(listResult).ToBytes(),
+                ct
+            );
+            return;
+        }
+
         if (session.User!.Characters.Count != 0)
         {
             Character cha = session.User!.Characters.First();

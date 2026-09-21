@@ -141,6 +141,7 @@ public enum PacketType : ushort
     )]
     AvatarDestroyRequest = 0x765A,
 
+    // September 2008 lobby recv uses 0x6587 as the avatar record (parser 0x6ba18a).
     [PacketMetadata(
         PacketServerType.Msg,
         PacketDirection.ServerToClient,
