@@ -56,7 +56,10 @@ public class AreaNpcGetDataHandler(INpcRepository npcRepository, ITextLocaliser 
         );
 
         npcChara.NamePlate = npc.NamePlate;
-        var npcPacket = new NpcNotifyData(0, objectId, npcChara).ToBytes();
-        return session.SendAsync(PacketType.NpcNotifyData, npcPacket, ct);
+        var npcPacket = new NpcNotifyData(0, objectId, npcChara);
+        var body = ClientWireProfile.IsSeptember2008(session)
+            ? npcPacket.ToSeptember2008Bytes()
+            : npcPacket.ToBytes();
+        return session.SendAsync(PacketType.NpcNotifyData, body, ct);
     }
 }
