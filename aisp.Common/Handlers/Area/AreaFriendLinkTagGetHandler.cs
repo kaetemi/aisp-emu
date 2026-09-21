@@ -25,7 +25,7 @@ public sealed class AreaFriendLinkTagGetHandler(IFriendRepository friends)
         {
             await session.SendAsync(
                 ResponseType,
-                new FriendLinkTagGetResponse(1, req.TargetObjectId).ToBytes(),
+                TagBody(session, new FriendLinkTagGetResponse(1, req.TargetObjectId)),
                 ct
             );
             return;
@@ -54,6 +54,9 @@ public sealed class AreaFriendLinkTagGetHandler(IFriendRepository friends)
                 .Select(x => (uint)x)
                 .ToArray()
         );
-        await session.SendAsync(ResponseType, response.ToBytes(), ct);
+        await session.SendAsync(ResponseType, TagBody(session, response), ct);
     }
+
+    private static byte[] TagBody(IPlayerSession session, FriendLinkTagGetResponse response) =>
+        ClientWireProfile.IsSeptember2008(session) ? response.ToSeptember2008Bytes() : response.ToBytes();
 }

@@ -34,6 +34,42 @@ public sealed class FriendLinkPacketTests
     }
 
     [Fact]
+    public void September2008_FriendLinkTag_IsResultIdAndTwoCounts()
+    {
+        var bytes = new FriendLinkTagGetResponse(0, 42).ToSeptember2008Bytes();
+        var reader = new PacketReader(bytes);
+
+        Assert.Equal(16, bytes.Length);
+        Assert.Equal(0u, reader.ReadUInt());
+        Assert.Equal(42u, reader.ReadUInt());
+        Assert.Equal(0u, reader.ReadUInt());
+        Assert.Equal(0u, reader.ReadUInt());
+        Assert.Equal(0, reader.Remaining);
+    }
+
+    [Fact]
+    public void September2008_FriendLinkTag_WritesOneTagThenItsSlot()
+    {
+        var bytes = new FriendLinkTagGetResponse(
+            0,
+            7,
+            [new FriendLinkTagData(3, "A")],
+            [1]
+        ).ToSeptember2008Bytes();
+        var reader = new PacketReader(bytes);
+
+        Assert.Equal(85, bytes.Length);
+        Assert.Equal(0u, reader.ReadUInt());
+        Assert.Equal(7u, reader.ReadUInt());
+        Assert.Equal(1u, reader.ReadUInt());
+        Assert.Equal(3u, reader.ReadUInt());
+        Assert.Equal("A", reader.ReadFixedString(FriendLinkTagData.NameBytes));
+        Assert.Equal(1u, reader.ReadUInt());
+        Assert.Equal(1u, reader.ReadUInt());
+        Assert.Equal(0, reader.Remaining);
+    }
+
+    [Fact]
     public void TagChangeRequest_ReadsSlotAndNullTerminatedName()
     {
         var writer = new PacketWriter();

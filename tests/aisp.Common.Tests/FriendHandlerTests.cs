@@ -74,6 +74,40 @@ public sealed class FriendHandlerTests
     }
 
     [Fact]
+    public async Task September2008_TagLookup_IsSixteenBytesWithoutQuestionnaireLists()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        await using var _ = connection;
+        var ct = TestContext.Current.CancellationToken;
+        await TestDb.SeedCharacterAsync(options, 2, ct);
+
+        await using var db = new MainContext(options);
+        var session = new CapturingPlayerSession
+        {
+            CharacterId = 2,
+            User = await db.Users.SingleAsync(ct),
+        };
+        ClientWireProfile.RememberVersionCheck(session, ClientWireProfile.September2008AreaCrc, 2);
+        var request = new PacketWriter();
+        request.Write(4u);
+
+        await new AreaFriendLinkTagGetHandler(new FriendRepository(db)).HandleAsync(
+            request.ToBytes(),
+            session,
+            ct
+        );
+
+        var response = Assert.Single(session.Sent);
+        Assert.Equal(PacketType.FriendLinkTagGetResponse, response.Type);
+        Assert.Equal(16, response.Payload.Length);
+        var reader = new PacketReader(response.Payload);
+        Assert.Equal(0u, reader.ReadUInt());
+        Assert.Equal(4u, reader.ReadUInt());
+        Assert.Equal(0u, reader.ReadUInt());
+        Assert.Equal(0u, reader.ReadUInt());
+    }
+
+    [Fact]
     public async Task ArbitraryTag_BlockedWordIsRejectedAndNotSaved()
     {
         var (connection, options) = TestDb.CreateInMemoryMainContext();
