@@ -126,18 +126,13 @@ public class AvatarGetCreateInfoHandlerTests
             TestContext.Current.CancellationToken
         );
 
-        Assert.Equal(2, session.Sent.Count);
-        Assert.Equal(ClientWireProfile.September2008AvatarRecord, session.Sent[0].Type);
-        Assert.Equal(0x6587, (ushort)session.Sent[0].Type);
+        var only = Assert.Single(session.Sent);
+        Assert.Equal(PacketType.AvatarGetDataResponse, only.Type);
+        Assert.Equal(100u, new PacketReader(only.Payload).ReadUInt());
         Assert.DoesNotContain(session.Sent, packet => packet.Type == PacketType.AvatarDataResponse);
-        var reader = new PacketReader(session.Sent[0].Payload);
-        Assert.Equal(42u, reader.ReadUInt());
-        Assert.Equal("eina", reader.ReadString());
-        reader.ReadBytes(19);
-        Assert.Equal(3u, reader.ReadUInt());
-        Assert.Equal(0u, reader.ReadUInt());
-        Assert.Equal(10_100_060u, reader.ReadUInt());
-        Assert.Equal(PacketType.AvatarGetDataResponse, session.Sent[1].Type);
-        Assert.Equal(100u, new PacketReader(session.Sent[1].Payload).ReadUInt());
+        Assert.DoesNotContain(
+            session.Sent,
+            packet => packet.Type == ClientWireProfile.September2008AvatarRecord
+        );
     }
 }

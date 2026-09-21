@@ -32,17 +32,10 @@ public class AvatarGetDataHandler(
         {
             // 0x6747 is not in this exe. The record is 0x6587, then 0xB055:
             // 0 opens the maker, 100 opens character select. Any other value is an error.
+            // Opcode 0x6587 is the record parser, but sending it (live 2026-09-21)
+            // closes Msg. The list uint alone stays up. 0 and 100 both reach the
+            // maker; 100 is the non-empty branch (scene state 0x3E8).
             var ready = session.User!.Characters.Count != 0;
-            if (ready)
-            {
-                var record = CreateDataResponse(session.User.Characters.First(), 0);
-                await session.SendAsync(
-                    ClientWireProfile.September2008AvatarRecord,
-                    record.ToSeptember2008Bytes(),
-                    ct
-                );
-            }
-
             var listResult = ready
                 ? ClientWireProfile.September2008AvatarListReady
                 : ClientWireProfile.September2008AvatarListEmpty;
