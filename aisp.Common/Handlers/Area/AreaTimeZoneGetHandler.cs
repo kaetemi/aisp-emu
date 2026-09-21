@@ -18,6 +18,7 @@ public class AreaTimeZoneGetHandler : IPacketHandler, IRequiresAuthenticatedSess
     {
         var t = TimeZoneService.GetServerTime();
         var resp = new TimeZoneGetResponse(0, (uint)t.Phase, t.Current, t.Max, 1);
-        await session.SendAsync(ResponseType, resp.ToBytes(), ct);
+        var body = ClientWireProfile.IsSeptember2008(session) ? resp.ToSeptember2008Bytes() : resp.ToBytes();
+        await session.SendAsync(ResponseType, body, ct);
     }
 }
