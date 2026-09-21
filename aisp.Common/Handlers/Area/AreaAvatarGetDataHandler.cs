@@ -65,6 +65,8 @@ public class AreaAvatarGetDataHandler(ILogger<AreaAvatarGetDataHandler> logger)
             session.ConnectionId,
             cha.Id
         );
-        await session.SendAsync(ResponseType, new AvatarNotifyData(0, avatarData).ToBytes(), ct);
+        var notify = new AvatarNotifyData(0, avatarData);
+        var body = ClientWireProfile.IsSeptember2008(session) ? notify.ToSeptember2008Bytes() : notify.ToBytes();
+        await session.SendAsync(ResponseType, body, ct);
     }
 }

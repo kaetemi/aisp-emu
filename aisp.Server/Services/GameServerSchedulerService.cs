@@ -81,12 +81,18 @@ public sealed class GameServerSchedulerService(
             return;
 
         var t = TimeZoneService.GetServerTime();
-        var data = new TimeZoneGetResponse(0, (uint)t.Phase, t.Current, t.Max, 0).ToBytes();
+        var packet = new TimeZoneGetResponse(0, (uint)t.Phase, t.Current, t.Max, 0);
+        var data = packet.ToBytes();
+        var september2008 = packet.ToSeptember2008Bytes();
 
         foreach (var client in clients)
         {
-            if (client.IsAuthenticated)
-                _ = client.SendAsync(PacketType.TimeZoneGetResponse, data);
+            if (!client.IsAuthenticated)
+                continue;
+            _ = client.SendAsync(
+                PacketType.TimeZoneGetResponse,
+                ClientWireProfile.IsSeptember2008(client) ? september2008 : data
+            );
         }
     }
 }
