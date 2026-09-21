@@ -53,7 +53,8 @@ public class AvatarDataResponse(
     }
 
     /// <summary>
-    /// September 2008 lobby record (opcode <c>0x6587</c>, parser <c>0x6ba18a</c>).
+    /// September 2008 <c>recv_avatar_data</c> <c>0x6747</c> (parser <c>0x6ba28b</c>).
+    /// The opcode is not a direct compare; the switch subtracts <c>0x6719</c> then <c>0x2e</c>.
     /// No model-id uint. The visual is the same 19 bytes as create. Slot must be 0
     /// or the client drops the record. Equipment is 29 item ids, not id/socket pairs.
     /// </summary>

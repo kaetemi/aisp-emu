@@ -41,12 +41,11 @@ public static class ClientWireProfile
         IsSeptember2008(session) ? PacketType.RoboRestResponse : PacketType.NotifyChangeMap;
 
     /// <summary>
-    /// 2008 lobby avatar record. Parser <c>0x6ba18a</c> reads it and keeps slot 0.
-    /// <see cref="PacketType.AvatarGetDataResponse"/> then carries 0 (open the maker)
-    /// or 100 (open character select). 2011 reused this opcode as
-    /// <see cref="PacketType.AvatarDestroyResponse"/>. <c>0x6747</c> is not in the exe.
+    /// 2008 <c>recv_avatar_data</c>. Same opcode as 2009, different body
+    /// (<see cref="aisp.Network.Packets.Msg.AvatarDataResponse.ToSeptember2008Bytes"/>).
+    /// <see cref="PacketType.AvatarDestroyResponse"/> is a 4-byte packet on this exe.
     /// </summary>
-    public const PacketType September2008AvatarRecord = PacketType.AvatarDestroyResponse;
+    public const PacketType September2008AvatarRecord = PacketType.AvatarDataResponse;
 
     public const uint September2008AvatarListEmpty = 0;
     public const uint September2008AvatarListReady = 100;

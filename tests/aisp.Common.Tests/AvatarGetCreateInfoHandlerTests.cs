@@ -126,13 +126,25 @@ public class AvatarGetCreateInfoHandlerTests
             TestContext.Current.CancellationToken
         );
 
-        var only = Assert.Single(session.Sent);
-        Assert.Equal(PacketType.AvatarGetDataResponse, only.Type);
-        Assert.Equal(100u, new PacketReader(only.Payload).ReadUInt());
-        Assert.DoesNotContain(session.Sent, packet => packet.Type == PacketType.AvatarDataResponse);
+        Assert.Equal(2, session.Sent.Count);
+        Assert.Equal(PacketType.AvatarDataResponse, session.Sent[0].Type);
+        Assert.Equal(0x6747, (ushort)session.Sent[0].Type);
         Assert.DoesNotContain(
             session.Sent,
-            packet => packet.Type == ClientWireProfile.September2008AvatarRecord
+            packet => packet.Type == PacketType.AvatarDestroyResponse
         );
+        var reader = new PacketReader(session.Sent[0].Payload);
+        Assert.Equal(42u, reader.ReadUInt());
+        Assert.Equal("eina", reader.ReadString());
+        var visual = aisp.Network.Data.CharaVisual.FromBytes(reader.ReadBytes(19));
+        Assert.Equal(2u, visual.Gender);
+        Assert.Equal(2, visual.Face);
+        Assert.Equal(10_930_020u, visual.Hairstyle);
+        Assert.Equal(3u, reader.ReadUInt());
+        Assert.Equal(0u, reader.ReadUInt());
+        Assert.Equal(10_100_060u, reader.ReadUInt());
+        Assert.Equal(28 * 4, reader.Remaining);
+        Assert.Equal(PacketType.AvatarGetDataResponse, session.Sent[1].Type);
+        Assert.Equal(100u, new PacketReader(session.Sent[1].Payload).ReadUInt());
     }
 }

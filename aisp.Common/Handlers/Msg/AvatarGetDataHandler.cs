@@ -30,12 +30,22 @@ public class AvatarGetDataHandler(
     {
         if (ClientWireProfile.IsSeptember2008(session))
         {
-            // 0x6747 is not in this exe. The record is 0x6587, then 0xB055:
-            // 0 opens the maker, 100 opens character select. Any other value is an error.
-            // Opcode 0x6587 is the record parser, but sending it (live 2026-09-21)
-            // closes Msg. The list uint alone stays up. 0 and 100 both reach the
-            // maker; 100 is the non-empty branch (scene state 0x3E8).
+            // 0x6747 is this build's avatar record, reached by subtracting 0x6719
+            // and 0x2e from the opcode rather than a direct compare. The body has
+            // no model id and 29 item ids. 0x6587 is a different 4-byte packet;
+            // a long body there fails the consume check and closes Msg.
+            // 0xB055 then moves the login scene: 0 to the maker, 100 to state 0x3E8.
             var ready = session.User!.Characters.Count != 0;
+            if (ready)
+            {
+                var record = CreateDataResponse(session.User.Characters.First(), 0);
+                await session.SendAsync(
+                    PacketType.AvatarDataResponse,
+                    record.ToSeptember2008Bytes(),
+                    ct
+                );
+            }
+
             var listResult = ready
                 ? ClientWireProfile.September2008AvatarListReady
                 : ClientWireProfile.September2008AvatarListEmpty;
