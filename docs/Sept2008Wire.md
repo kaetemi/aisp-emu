@@ -17,7 +17,7 @@ Official service launch was 2008-10-15. This client is pre-launch. Login UI is �
 
 Do not inject the 2011-era `aisp.launch.exe` that shipped in the RAR. Launch `ai sp@ce.exe ./data` until `aisp.hook` addresses are retargeted.
 
-The 2008 exe does **not** read `connection.txt` (that file is aisp.launch / aisp.hook). Direct launch connects to production Auth **`119.75.227.142:50050`** (Equinix Tokyo). `scripts/sept2008/aisp-redirect-connect.so` is `LD_PRELOAD`'d into **wineserver64** and maps that IP to `127.0.0.1`, with ports 50050/52/54 remapped to 60050/52/54 so the July 2009 server can stay up.
+The 2008 exe does **not** read `connection.txt` (that file is aisp.launch / aisp.hook). Direct launch connects to leftover production Auth on **`119.75.227.0/24`**, seen as **`119.75.227.142:50050`** and **`119.75.227.141:50051`**. `sept2008/aisp-redirect-connect.so` is `LD_PRELOAD`'d into **wineserver64 only** (a 64-bit .so on the 32-bit wine process is ignored and can skip the wineserver socket path) and maps that /24 to `127.0.0.1`, with 50050/50051→60050, 50052/50053→60052, 50054/50055→60054 so the July 2009 server can stay on 50050.
 
 ## Auth version check (live 2026-09-21)
 
