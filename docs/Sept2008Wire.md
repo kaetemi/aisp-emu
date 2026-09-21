@@ -144,11 +144,11 @@ C2S immediates are not stored as `push imm32` even on the 2009 exe, so a miss th
 | `recv_talk_forward` | `0x20F6` | present | present |
 | `recv_gacha_started` | `0xCC88` | present | present |
 | `recv_aipower_data` | `0x59C3` | present | present |
-| `recv_notify_change_map` | `0xB315` | **absent** | present (98-byte layout) |
+| `recv_notify_change_map` | `0xB315` | present (98-byte layout; subtraction chain) | present (98-byte layout) |
 | `recv_notify_change_myroom` | `0x0FA0` | present | present |
 | `recv_notify_change_map_failed` | `0x6648` | present | present |
 
-`recv_notify_change_map` on this exe is opcode **`0xB235`** (area parser `0x6a8663`, alloc `0x68`), not `0xB315`. The body is the 98-byte July 2009 layout: 30-byte route, fade byte, port uint16, 65-byte IP. `0xB315` is absent. 2011 reused `0xB235` as `recv_robo_rest_r`. Area version-check is extra 2, crc `0x9E57B1E4` (`0x693792`). `recv_notify_maplink_data` `0x5755` is present (25 bytes, same as the 2011 reader). `recv_notify_select_map` `0x68A5` is absent.
+`recv_notify_change_map` on this exe is opcode **`0xB315`**. The area switch compares `0xB235` and takes the greater-than arm (`0x6a87a7`), then subtracts `0xB2A9`, `0x6B`, and `1`. The fall-through (`0x6a883c`, alloc `0x68`, slot `0x0a`) is `0xB315`. The body is the 98-byte July 2009 layout: 30-byte route (`0x696980`: four uints, XYZ, rotation, animation), fade byte (`0x695f50`), port uint16 and 65-byte IP (`0x6967d0`). The `0x20` and `0x44` helpers reserve space in that alloc; they do not add those sizes to the packet. `0xB235` (`0x6a8663`, slot `0x32`) is a different packet: two uints, 8 bytes. A 98-byte body on `0xB235` fails the consume check and resets Area. 2011 reused `0xB235` as `recv_robo_rest_r`. Callback `0x6907d0` (`vtable+0x84`). An empty IP leaves the string size at 0, and `0x61bb40` skips the area reconnect. Area version-check is extra 2, crc `0x9E57B1E4` (`0x693792`). `recv_notify_maplink_data` `0x5755` is present (25 bytes, same as the 2011 reader). `recv_notify_select_map` `0x68A5` is absent.
 
 `recv_enter_areasv_r` `0x0149` (parser `0x69813d`, alloc 4) is one uint. Result 0 moves the area scene `0xFAA` → `0xFB4`, which then sends `0xAD9E` (avatar data), `0x44CE` (robo list), `0xC8EA` (item base list), and `0x2A9A` (item list). The 2009/2011 objId uint fails that consume check and the area socket closes before those requests. Nonzero result moves to `0x270F` and drops the connection.
 

@@ -144,7 +144,7 @@ See `docs/July2009Wire.md`. MOTD is **not sent** (2009 has no System/Notice UI; 
 
 ## September 2008 wire (this branch)
 
-See `docs/Sept2008Wire.md`. Pre-launch `ai sp@ce.exe` 2008-09-16, build **0x09**. Parent is `experimental/july2009`. Login is ログインID (not niconico email). Direct exe connects to production Auth `119.75.227.142:50050` (does not read `connection.txt`); wineserver64 `LD_PRELOAD` maps that to `127.0.0.1:60050`. `recv_notify_change_map` `0xB315` is **absent**. Display `:94`, prefix `/mnt/amber/aispace/sept2008/`, docker `aisp-sept2008-server` on 60050/60052/60054/8081. Do not mix with `:95`/`:96`/`:97`. MOTD left off until DistId mapping is proven. Version-check echo that 2009 accepts is not enough (E000, no `send_authenticate`).
+See `docs/Sept2008Wire.md`. Pre-launch `ai sp@ce.exe` 2008-09-16, build **0x09**. Parent is `experimental/july2009`. Login is ログインID (not niconico email). Direct exe connects to production Auth `119.75.227.142:50050` (does not read `connection.txt`); wineserver64 `LD_PRELOAD` maps that to `127.0.0.1:60050`. `recv_notify_change_map` is `0xB315` (98 bytes, same layout as July 2009). `0xB235` is an 8-byte packet on this exe. Display `:94`, prefix `/mnt/amber/aispace/sept2008/`, docker `aisp-sept2008-server` on 60050/60052/60054/8081. Do not mix with `:95`/`:96`/`:97`. MOTD left off until DistId mapping is proven. Version-check echo that 2009 accepts is not enough (E000, no `send_authenticate`).
 
 ## Decompiled client reference (`localDocs/aisp-decompiled.c`)
 

@@ -68,8 +68,8 @@ public class AvatarGetCreateInfoHandlerTests
     {
         var session = new CapturingPlayerSession();
         ClientWireProfile.RememberVersionCheck(session, ClientWireProfile.September2008AreaCrc, 2);
-        Assert.Equal(PacketType.RoboRestResponse, ClientWireProfile.NotifyChangeMapOpcode(session));
-        Assert.Equal(0xB235, (ushort)ClientWireProfile.NotifyChangeMapOpcode(session));
+        Assert.Equal(PacketType.NotifyChangeMap, ClientWireProfile.NotifyChangeMapOpcode(session));
+        Assert.Equal(0xB315, (ushort)ClientWireProfile.NotifyChangeMapOpcode(session));
     }
 
     [Fact]

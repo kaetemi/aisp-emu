@@ -33,12 +33,18 @@ public static class ClientWireProfile
         September2008Crc.ContainsKey(session.ConnectionId);
 
     /// <summary>
-    /// 2008 area recv enters a map on <c>0xB235</c> (later reused as
-    /// <see cref="PacketType.RoboRestResponse"/>). The body is the 98-byte 2009
-    /// <c>NotifyChangeMap</c>. 2009 moved that recv to <c>0xB315</c>.
+    /// September 2008 and July 2009 both enter a map on <c>0xB315</c>
+    /// (<see cref="PacketType.NotifyChangeMap"/>, 98 bytes). On the 2008 exe
+    /// that arm is the fall-through after <c>cmp eax, 0xB235</c> (subtract
+    /// <c>0xB2A9</c>, then <c>0x6B</c>, then 1; parser <c>0x6a883c</c>).
+    /// <c>0xB235</c> itself is an 8-byte two-uint packet (slot <c>0x32</c>).
+    /// The 98-byte body fails that consume check and resets Area.
     /// </summary>
-    public static PacketType NotifyChangeMapOpcode(IPlayerSession session) =>
-        IsSeptember2008(session) ? PacketType.RoboRestResponse : PacketType.NotifyChangeMap;
+    public static PacketType NotifyChangeMapOpcode(IPlayerSession session)
+    {
+        _ = session;
+        return PacketType.NotifyChangeMap;
+    }
 
     /// <summary>
     /// 2008 <c>recv_avatar_data</c>. Same opcode as 2009, different body
