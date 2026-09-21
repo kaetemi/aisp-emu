@@ -45,6 +45,20 @@ public class PacketRoundTripTests
         var req = AuthenticateRequest.FromBytes(w.ToBytes());
         Assert.Equal("user", req.Username);
         Assert.Equal("secret", req.Password);
+        Assert.Equal("", req.Extra);
+    }
+
+    [Fact]
+    public void AuthenticateRequest_FromBytes_ReadsOptionalThirdCString()
+    {
+        var w = new PacketWriter();
+        w.Write("eina");
+        w.Write("sept2008");
+        w.Write("hw-id");
+        var req = AuthenticateRequest.FromBytes(w.ToBytes());
+        Assert.Equal("eina", req.Username);
+        Assert.Equal("sept2008", req.Password);
+        Assert.Equal("hw-id", req.Extra);
     }
 
     [Fact]

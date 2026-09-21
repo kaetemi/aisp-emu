@@ -24,7 +24,11 @@ public class AuthenticateHandler(
         CancellationToken ct = default
     )
     {
-        _logger.LogInformation("Auth request: {Username}", request.Username);
+        _logger.LogInformation(
+            "Auth request: {Username} extraLen={ExtraLen}",
+            request.Username,
+            request.Extra.Length
+        );
 
         var user = await userRepo.GetByUsernameAsync(request.Username);
 

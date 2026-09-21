@@ -9,6 +9,8 @@ public ref struct PacketReader(ReadOnlySpan<byte> buffer)
     private readonly ReadOnlySpan<byte> _buffer = buffer;
     private int _offset = 0;
 
+    public readonly int Remaining => _buffer.Length - _offset;
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private ReadOnlySpan<byte> ReadSpan(int length)
     {

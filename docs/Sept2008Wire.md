@@ -43,9 +43,67 @@ else set fail flag +0x105;  // login error 9
 
 CProtoAuth (`0x89f604`) has a later check at state 61/62 (`0x693700` sends extra=**3**, crc `0x122646E7`) whose +0x64 is **`0x6924c0`** (same shape but Ver==**3**).
 
-Live 2026-09-21: Result=0 echo of extra=2 is consumed (no RST). Login then sits in state 4: `0x692f80` requires VCE `GetState()` **3 (ESTABLISHED) or 4 (LISTENING)** on `0x89f600`. That fails → **E000** 「サーバーに接続できませんでした」. Sending Result=1, Ver=3 hits `0x692230`’s fail path → 「クライアントのバージョンが更新されています」 (please update). Not a VCE RST (Auth TCP stays ESTAB).
+Live 2026-09-21 (reconfirmed): Result=0 echo of extra=2 is consumed. Auth TCP stays ESTAB. No `send_authenticate`. Login state 4 then **E000** 「サーバーに接続できませんでした」. Result=1, Ver=3 hits `0x692230`’s fail path → 「クライアントのバージョンが更新されています」.
 
-Next hole: why `0x89f600` GetState is not 3/4 after a successful extra=2 echo (2009 reaches authenticate ~90 ms later with the same echo).
+2009 does **not** contain crc `0xB35DC876` or extra=3 crc `0x122646E7`. July 2009 has no extra=2 bootstrap proto; it version-checks once on CProtoAuth (`extra=0x03FA6EC0`) and authenticates ~90 ms later.
+
+### Login FSM (`0x60d5c0`, state at `this+8`)
+
+`0x89f600` is a 0x108-byte generated codec (ctor `0x6921e0`, vtable `0x813db4`). `[proto+0x100]` is a self-pointer. `0x89f604` is CAIProtoAuth (size 0x714, session at +0x70c). `0x89f608` is Area (size 0x2050, session at +0x2048).
+
+The extra=2 codec **is** Auth, not a throwaway ping. CProtoAuth extra=3 is a later reconnect after world select.
+
+| State | Handler | What |
+| --- | --- | --- |
+| 0 | `0x60d62f` | Load leftover Auth host/port (`0x5fe9c0` / `0x5fe9f0`) |
+| 3 | `0x60d7ff` | `0x6936b0`: `VCE::Connect` + `send_check_version` extra=2 |
+| 4 | `0x60d814` | Wait version-check, then `send_authenticate` `0xF24B` (`0x6b5240`, 3 CStrings max 0x41) |
+| 10 | (idle) | No switch arm; worldlist is state 20 |
+| 20 | `0x60daf7` | `send_get_worldlist` `0x6676` (`0x6b5370`) |
+| 60 | `0x60dcd9` | `0x692fc0` Close extra=2 codec |
+| 61 | `0x60dd0a` | `0x693700` Connect CProtoAuth extra=3 |
+| 62 | `0x60dd45` | Wait CProtoAuth GetState 3/4, then authenticate on `0x89f604` |
+
+### Login FSM state 4 (`0x60d814`)
+
+Each tick:
+
+1. `0x692f50` — keep waiting if GetState==**1 (CONNECTING)** **or** recv flag `proto+0x104` is still 0.
+2. Else `0x692f80` — require `+0x104 != 0` **and** GetState **3 or 4**. Fail → `0x60dd9e` (Close all three codecs, state=0) → Closed callback `0x60d470` → E000.
+3. Else if `+0x105` → error 9 (please-update).
+4. Else `0x60ce70` (credential strings from `0x5fea30` login-id / `0x5fea60` password) then `0x6b5240` `0xF24B`.
+
+`0x692230` always sets `+0x104=1` when `0xB6B4` is parsed, then sets `+0x105` only on version fail. After a Result=0 echo, step 1 no longer waits unless GetState stays CONNECTING.
+
+Codec GetState (`vtable+0x10` = `0x74a350`) is `inner = this+4` (iSession*); null → 0. Connect attach (`0x76b449`) sets `codec+4` = session and `codec+0xc` = VCE (send allocator). Inner `vtable+0xc` on `iTcpStream` / `iCryptSession<iTcpStream, CamelliaCrypter<128>>` is **`0x769900`**, which maps `[session+0x1c0]` (internal 0–11) to `VCE_STATE`:
+
+| Internal | GetState |
+| --- | --- |
+| 0–3 | 2 PREPROCESS |
+| 4–5 | 1 CONNECTING |
+| 6–10 | 3 ESTABLISHED |
+| 11 | 5 CLOSED |
+| else / null inner | 0 UNKNOWN |
+
+State 4 waits only on CONNECTING (internal 4–5). Internal 2–3 still read as PREPROCESS, so the FSM does **not** wait and E000s.
+
+Live 2026-09-21 (32-bit `LD_PRELOAD` hook on `0x74a350`, on-disk PE not patched): after `VCE::Connect`, `codec+4` is a live `iCryptSession` and **GetState is already 3 ESTABLISHED**. Extra=2 `0xB6B4` is parsed (`+0x104=1`). E000 still happens and **`0xF24B` is never sent**. GetState is not the remaining hole.
+
+### HTTPS niconico login (the E000 after extra=2)
+
+State 4 then calls `0x60ce70` → `0x61b370`, which is WinINet, not VCE:
+
+| Call | Live log |
+| --- | --- |
+| `InternetOpenW` | agent `aispace` |
+| `InternetConnectW` | host **`secure.nicovideo.jp`** port **443** service 3 (HTTP) |
+| `HttpOpenRequestW` | verb **`POST`** path **`secure/login`** flags `0x4800000` (`INTERNET_FLAG_SECURE\|NO_CACHE_WRITE`) |
+
+That is `https://secure.nicovideo.jp/secure/login`. Body is written with `InternetWriteFile`; status via `HttpQueryInfoW` (`HTTP_QUERY_STATUS_CODE`); body via `InternetReadFile` into `0x61b310`. Failures set error 1–9 and `0x60ce70` returns 0 → `0x60c8e0` / Close → E000 「サーバーに接続できませんでした」. 2009 dropped this HTTP step (niconico is the launcher). Local emulator must stub this HTTPS POST (or the string-table host) before `0xF24B` will go out.
+
+ESTABLISHED writers include `0x76bc01` / `0x76c41d` (→6) and `0x76bed1` (→7). iCryptSession keyex lives at `+0x1e8` (`KEYEX_*`); GetState does not read it.
+
+Patching `0x692f80` to `return 1` on disk makes this exe `Initialize failed. [ Code : -1 ]` (likely a .text checksum) — do not patch the binary. A runtime `LD_PRELOAD` hook after Initialize is fine for diagnostics (`sept2008/aisp-getstate-hook.c`).
 
 ## Recv opcode presence (`cmp eax, imm32` vs 2009)
 
