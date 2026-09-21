@@ -29,7 +29,23 @@ VCE RSA-16 + Camellia-128 handshake succeeds. First packet is `send_check_versio
 | Fields | uint 0, crc `0xB35DC876`, extra **2** | uint 0, crc `0xA98E12D0`, extra `0x03FA6EC0` |
 | Send site | `push 2; push crc; push 0` at `0x6936e3` | `push 0x03FA6EC0; push crc; push 0` at `0x713733` |
 
-`recv_check_version_r` `0xB6B4` alloc is **16** bytes on both (Result + 3 uints). Echoing the 12-byte request as Result=0 + those three uints is what 2009 accepts (then `send_authenticate`). This 2008 build stays on Auth TCP, never sends authenticate, and shows **E000** 「サーバーに接続できませんでした」. Not a VCE RST (connection stays ESTAB). Callback after the 16-byte parse is the next hole.
+`recv_check_version_r` `0xB6B4` alloc is **16** bytes on both (Result + 3 uints). Echoing the 12-byte request as Result=0 + those three uints is what 2009 accepts (then `send_authenticate`).
+
+### Two 2008 version-check callbacks
+
+Login FSM state 3 sends the extra=2 check via proto `0x89f600` (`0x6936b0`). That proto’s recv (`0x6b56b0`) handles `0xB6B4` and calls +0x64 **`0x692230`**:
+
+```
+if (Result == 0) ok;
+else if (Major == 0 && Ver == 2) ok;
+else set fail flag +0x105;  // login error 9
+```
+
+CProtoAuth (`0x89f604`) has a later check at state 61/62 (`0x693700` sends extra=**3**, crc `0x122646E7`) whose +0x64 is **`0x6924c0`** (same shape but Ver==**3**).
+
+Live 2026-09-21: Result=0 echo of extra=2 is consumed (no RST). Login then sits in state 4: `0x692f80` requires VCE `GetState()` **3 (ESTABLISHED) or 4 (LISTENING)** on `0x89f600`. That fails → **E000** 「サーバーに接続できませんでした」. Sending Result=1, Ver=3 hits `0x692230`’s fail path → 「クライアントのバージョンが更新されています」 (please update). Not a VCE RST (Auth TCP stays ESTAB).
+
+Next hole: why `0x89f600` GetState is not 3/4 after a successful extra=2 echo (2009 reaches authenticate ~90 ms later with the same echo).
 
 ## Recv opcode presence (`cmp eax, imm32` vs 2009)
 
