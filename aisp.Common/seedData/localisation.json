@@ -469,6 +469,42 @@
     "zh-Hans": "没有特别偏好",
     "zh-Hant": "沒有特別偏好"
   },
+  "script.hotaru.recycle.prompt": {
+    "ja": "aiぽんの景品を{0}個あずけてくれたら、aiポンチケット1枚と交換するよ。リサイクルする？",
+    "en": "Give me {0} aiPon prizes and I'll swap them for one aiPon ticket. Want to recycle?",
+    "zh-Hans": "把{0}个aiPon奖品交给我，就能换1张aiPon票。要回收吗？",
+    "zh-Hant": "把{0}個aiPon獎品交給我，就能換1張aiPon票。要回收嗎？"
+  },
+  "script.hotaru.recycle.yes": {
+    "ja": "リサイクルする",
+    "en": "Recycle",
+    "zh-Hans": "回收",
+    "zh-Hant": "回收"
+  },
+  "script.hotaru.recycle.no": {
+    "ja": "やめておく",
+    "en": "Not now",
+    "zh-Hans": "先不用",
+    "zh-Hant": "先不用"
+  },
+  "script.hotaru.recycle.done": {
+    "ja": "はい、aiポンチケット{0}枚！aiぽんで使ってね。",
+    "en": "Here you go, {0} aiPon ticket(s)! Use them at an aiPon machine.",
+    "zh-Hans": "给你，aiPon票{0}张！去aiPon机器用吧。",
+    "zh-Hant": "給你，aiPon票{0}張！去aiPon機器用吧。"
+  },
+  "script.hotaru.recycle.nothing": {
+    "ja": "景品が足りなかったみたいね。また集めてきてね。",
+    "en": "That wasn't enough prizes. Come back when you have more.",
+    "zh-Hans": "奖品好像不够呢。再多收集一些再来吧。",
+    "zh-Hant": "獎品好像不夠呢。再多收集一些再來吧。"
+  },
+  "script.hotaru.recycle.unavailable": {
+    "ja": "今はリサイクルをやってないの。ごめんね。",
+    "en": "I'm not doing recycling right now, sorry.",
+    "zh-Hans": "现在没有在做回收，抱歉。",
+    "zh-Hant": "現在沒有在做回收，抱歉。"
+  },
   "script.station_staff.register_first": {
     "ja": "先に外神田ビルで登録してください。",
     "en": "Please register at the Sotokanda Building first.",

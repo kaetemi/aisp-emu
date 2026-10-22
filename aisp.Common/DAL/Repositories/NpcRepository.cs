@@ -173,6 +173,21 @@ public sealed class NpcRepository(MainContext db) : INpcRepository
             npc.Rotation = npcRow.Rotation;
             npc.ShopId = null;
             npc.GachaMachineId = null;
+            if (!string.IsNullOrWhiteSpace(npcRow.GachaMachineCode))
+            {
+                var machineId = await db
+                    .GachaMachines.AsNoTracking()
+                    .Where(x => x.Code == npcRow.GachaMachineCode)
+                    .Select(x => (int?)x.Id)
+                    .FirstOrDefaultAsync(ct);
+                if (machineId is null)
+                    logger?.LogWarning(
+                        "NPC seed {NpcObjectId} refers to unknown gacha machine {Code}.",
+                        npcRow.NpcObjectId,
+                        npcRow.GachaMachineCode
+                    );
+                npc.GachaMachineId = machineId;
+            }
             npc.InteractionType = ParseInteractionType(npcRow.InteractionType);
             npc.IsEnabled = npcRow.IsEnabled ?? true;
             npc.SortOrder = npcRow.SortOrder ?? 0;
@@ -307,6 +322,9 @@ public sealed class NpcRepository(MainContext db) : INpcRepository
         public string? EventKind { get; set; }
         public string? EventKey { get; set; }
         public string? ScriptedEventKey { get; set; }
+
+        /// <summary>Code of the gacha machine whose recycle rule the NPC's script uses (e.g. Hotaru's ticket exchange).</summary>
+        public string? GachaMachineCode { get; set; }
         public List<NpcEquipmentSeedRow>? Equipment { get; set; }
     }
 

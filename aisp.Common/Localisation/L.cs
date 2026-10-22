@@ -196,6 +196,18 @@ public static class L
             );
         }
 
+        public static class Hotaru
+        {
+            public static readonly LocKey RecyclePrompt = new("script.hotaru.recycle.prompt");
+            public static readonly LocKey RecycleYes = new("script.hotaru.recycle.yes");
+            public static readonly LocKey RecycleNo = new("script.hotaru.recycle.no");
+            public static readonly LocKey RecycleDone = new("script.hotaru.recycle.done");
+            public static readonly LocKey RecycleNothing = new("script.hotaru.recycle.nothing");
+            public static readonly LocKey RecycleUnavailable = new(
+                "script.hotaru.recycle.unavailable"
+            );
+        }
+
         public static class StationStaff
         {
             public static readonly LocKey RegisterFirst = new(

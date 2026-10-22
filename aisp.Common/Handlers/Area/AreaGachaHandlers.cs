@@ -1,6 +1,7 @@
 using aisp.Common.DAL;
 using aisp.Common.DAL.Repositories;
 using aisp.Common.Game;
+using aisp.Common.Game.ServerScripts;
 using aisp.Network;
 using aisp.Network.Packets.Area;
 using Microsoft.EntityFrameworkCore;
@@ -362,7 +363,8 @@ public sealed class AreaGachaTicketExchangeItemDelHandler(
 /// </summary>
 public sealed class AreaGachaTicketExchangeCloseHandler(
     GachaTicketExchange ticketExchange,
-    ILogger<AreaGachaTicketExchangeCloseHandler> logger
+    ILogger<AreaGachaTicketExchangeCloseHandler> logger,
+    ServerScriptDispatcher? serverScriptDispatcher = null
 ) : IPacketHandler, IRequiresAuthenticatedSession
 {
     public PacketType RequestType => PacketType.GachaTicketExchangeCloseRequest;
@@ -383,5 +385,9 @@ public sealed class AreaGachaTicketExchangeCloseHandler(
             request.Reason,
             tickets
         );
+        // A box opened by an NPC script (Hotaru) continues its event from here.
+        HotaruServerScript.RecordSettlement(session, tickets);
+        if (serverScriptDispatcher is not null)
+            await serverScriptDispatcher.TryHandlePacketAsync(RequestType, payload, session, ct);
     }
 }

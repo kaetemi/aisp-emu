@@ -5,6 +5,7 @@ public static class ServerEvents
     public static class Keys
     {
         public const string AdventureShopSales = "adventure_shop_sales";
+        public const string Hotaru = "hotaru";
         public const string IntroductionChineseCosplayer = "introdution_chinese_cosplayer";
         public const string MyRoomWardrobe = "myroom_wardrobe";
         public const string MyRoomDoor = "myroom_door";

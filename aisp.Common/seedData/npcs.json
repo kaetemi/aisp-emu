@@ -70,8 +70,9 @@
       "z": -22225.0,
       "rotation": 90,
       "interactionType": "Decorative",
-      "eventKind": "ClientScript",
-      "eventKey": "introdution_hotaru_0",
+      "eventKind": "ServerScript",
+      "eventKey": "hotaru",
+      "gachaMachineCode": "akihabara_station_aipon",
       "isEnabled": true,
       "sortOrder": 101,
       "equipment": [
