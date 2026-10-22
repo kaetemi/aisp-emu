@@ -77,13 +77,9 @@ public sealed class GachaTicketExchange(
         if (owned - deposited < quantity)
             return false;
 
+        // The client's box window keeps its own offered/remaining bookkeeping; a bag update here would be
+        // subtracted twice. The bag is re-synced from the database when the box settles.
         box.Deposits[itemId] = deposited + quantity;
-        await CharacterItemSync.SendInventoryQuantityAsync(
-            session,
-            itemId,
-            owned - box.Deposits[itemId],
-            ct
-        );
         return true;
     }
 
@@ -105,27 +101,30 @@ public sealed class GachaTicketExchange(
             box.Deposits.Remove(itemId);
         else
             box.Deposits[itemId] = deposited - quantity;
-        var owned = await OwnedAsync(session, itemId, ct);
-        await CharacterItemSync.SendInventoryQuantityAsync(
-            session,
-            itemId,
-            owned - box.Deposits.GetValueOrDefault(itemId),
-            ct
-        );
         return true;
     }
 
     /// <summary>
-    /// Closes the box: every complete set of <see cref="GachaTicketBox.ItemsPerTicket"/> deposited items is
-    /// taken from the bag and paid out as one ticket, the rest goes back. Returns the number of tickets minted.
+    /// Closes the box. When confirmed, every complete set of <see cref="GachaTicketBox.ItemsPerTicket"/>
+    /// deposited items is taken from the bag and paid out as one ticket and the rest goes back; a cancelled
+    /// box just forgets its deposits (nothing had left the bag). Returns the number of tickets minted.
     /// </summary>
-    public async Task<int> SettleAsync(IPlayerSession session, CancellationToken ct)
+    public async Task<int> SettleAsync(IPlayerSession session, bool confirmed, CancellationToken ct)
     {
         if (session.GachaTicketBox is not { } box)
             return 0;
         session.GachaTicketBox = null;
         if (session.CharacterId == 0 || box.Deposits.Count == 0)
             return 0;
+        if (!confirmed)
+        {
+            logger.LogInformation(
+                "GachaTicketExchange: character {CharacterId} cancelled the box with {Count} items in it",
+                session.CharacterId,
+                box.Total
+            );
+            return 0;
+        }
 
         var characterId = checked((int)session.CharacterId);
         var tickets = box.TicketsReady;
@@ -190,7 +189,8 @@ public sealed class GachaTicketExchange(
             }
         }
 
-        // Re-sync every stack the box touched from what the bag really holds now.
+        // Re-sync every stack the box touched from what the bag really holds now; the client's window
+        // undoes its own offered-quantity bookkeeping when it closes.
         foreach (var itemId in box.Deposits.Keys)
             await CharacterItemSync.SendInventoryQuantityAsync(
                 session,

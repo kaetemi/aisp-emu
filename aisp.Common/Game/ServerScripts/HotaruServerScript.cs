@@ -83,7 +83,7 @@ public sealed class HotaruServerScript(
         session.ServerScriptState.Data["npcObjectId"] = checked((uint)context.Npc.NpcObjectId);
         await session.SendAsync(
             PacketType.EventSelectInitNotify,
-            new EventSelectInitNotify { SelectType = EventSelectType.Popup }.ToBytes(),
+            new EventSelectInitNotify { SelectType = EventSelectType.Dialogue }.ToBytes(),
             ct
         );
         await session.SendAsync(

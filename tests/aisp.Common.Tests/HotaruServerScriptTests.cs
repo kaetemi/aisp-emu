@@ -80,7 +80,11 @@ public sealed class HotaruServerScriptTests
                 exchange,
                 NullLogger<AreaGachaTicketExchangeCloseHandler>.Instance,
                 dispatcher
-            ).HandleAsync(UIntPayload(1), session, ct);
+            ).HandleAsync(
+                UIntPayload(AreaGachaTicketExchangeCloseHandler.ConfirmedReason),
+                session,
+                ct
+            );
 
             Assert.Null(session.GachaTicketBox);
             Assert.Null(session.ActiveGachaMachineId);

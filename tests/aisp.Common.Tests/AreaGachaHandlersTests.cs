@@ -683,12 +683,9 @@ public class AreaGachaHandlersTests
                 .Select(p => new PacketReader(p.Payload).ReadUInt())
                 .ToArray();
             Assert.Equal([0u, 0u, 0u, 1u, 1u, 1u], results);
-            var bagUpdates = session
-                .Sent.Where(p => p.Type == PacketType.ItemUpdateNumNotify)
-                .Select(p => ReadUpdateNum(p.Payload))
-                .ToArray();
-            Assert.Equal([(ushort)2, (ushort)3], bagUpdates);
-            Assert.Contains(session.Sent, p => p.Type == PacketType.ItemDeleteNotify);
+            // The window keeps its own offered counts; the bag is only re-synced at settlement.
+            Assert.DoesNotContain(session.Sent, p => p.Type == PacketType.ItemUpdateNumNotify);
+            Assert.DoesNotContain(session.Sent, p => p.Type == PacketType.ItemDeleteNotify);
             Assert.Equal(4, session.GachaTicketBox!.Total);
             Assert.Equal(1, session.GachaTicketBox.TicketsReady);
 
@@ -696,7 +693,11 @@ public class AreaGachaHandlersTests
             await new AreaGachaTicketExchangeCloseHandler(
                 exchange,
                 NullLogger<AreaGachaTicketExchangeCloseHandler>.Instance
-            ).HandleAsync(BuildUIntPayload(1), session, ct);
+            ).HandleAsync(
+                BuildUIntPayload(AreaGachaTicketExchangeCloseHandler.ConfirmedReason),
+                session,
+                ct
+            );
 
             Assert.Null(session.GachaTicketBox);
             // Three consumed, one returned: the prize stack reads 1 again; the ticket stack appears.
@@ -798,6 +799,76 @@ public class AreaGachaHandlersTests
             Assert.False(
                 await verify.CharacterInventories.AnyAsync(
                     i => i.CharacterId == 9012 && i.ItemId == TicketItemId,
+                    ct
+                )
+            );
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task TicketExchange_CancelledClose_KeepsEverythingInTheBag()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var user = CreateUserWithCharacter(14, 9014, aiPoints: 0, nicoPoints: 0);
+            int machineId;
+            await using (var db = new MainContext(options))
+            {
+                db.Users.Add(user);
+                machineId = await SeedMachineAsync(
+                    db,
+                    aiPrice: 100,
+                    nicoPrice: 0,
+                    ticketItemId: TicketItemId,
+                    ticketsPerPull: 1,
+                    recycleItemsPerTicket: 3
+                );
+                db.CharacterInventories.Add(
+                    new CharacterInventory
+                    {
+                        CharacterId = 9014,
+                        ItemId = PrizeItemId,
+                        Quantity = 3,
+                    }
+                );
+                await db.SaveChangesAsync(ct);
+            }
+
+            await using var runDb = new MainContext(options);
+            var session = CreateSession(user, machineId);
+            var exchange = CreateExchange(runDb);
+            await new AreaGachaTicketExchangeItemAddHandler(
+                exchange,
+                NullLogger<AreaGachaTicketExchangeItemAddHandler>.Instance
+            ).HandleAsync(BuildStackPayload(PrizeItemId, 3), session, ct);
+            session.Sent.Clear();
+
+            await new AreaGachaTicketExchangeCloseHandler(
+                exchange,
+                NullLogger<AreaGachaTicketExchangeCloseHandler>.Instance
+            ).HandleAsync(BuildUIntPayload(1), session, ct);
+
+            Assert.Null(session.GachaTicketBox);
+            Assert.Empty(session.Sent);
+            await using var verify = new MainContext(options);
+            Assert.Equal(
+                3,
+                (
+                    await verify.CharacterInventories.SingleAsync(
+                        i => i.CharacterId == 9014 && i.ItemId == PrizeItemId,
+                        ct
+                    )
+                ).Quantity
+            );
+            Assert.False(
+                await verify.CharacterInventories.AnyAsync(
+                    i => i.CharacterId == 9014 && i.ItemId == TicketItemId,
                     ct
                 )
             );

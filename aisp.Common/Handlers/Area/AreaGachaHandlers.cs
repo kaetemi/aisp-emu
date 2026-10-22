@@ -273,7 +273,7 @@ public sealed class AreaGachaEndHandler(
             session.CharacterId,
             session.ActiveGachaMachineId
         );
-        await ticketExchange.SettleAsync(session, ct);
+        await ticketExchange.SettleAsync(session, confirmed: true, ct);
         session.ActiveGachaMachineId = null;
         await session.SendAsync(ResponseType, new GachaEndResponse(0).ToBytes(), ct);
         await session.SendAsync(PacketType.GachaEndedNotify, new GachaEndedNotify().ToBytes(), ct);
@@ -358,8 +358,9 @@ public sealed class AreaGachaTicketExchangeItemDelHandler(
 }
 
 /// <summary>
-/// <c>send_gachaticket_exchange_close</c> has no reply on the wire. Closing settles the box: complete sets become
-/// tickets, the rest returns to the bag.
+/// <c>send_gachaticket_exchange_close</c> has no reply on the wire. Reason 0 is the confirmed hand-over
+/// (トレード on the box window) and settles the box: complete sets become tickets, the rest returns to the
+/// bag. Any other reason is a cancel and the deposits are simply forgotten.
 /// </summary>
 public sealed class AreaGachaTicketExchangeCloseHandler(
     GachaTicketExchange ticketExchange,
@@ -367,6 +368,8 @@ public sealed class AreaGachaTicketExchangeCloseHandler(
     ServerScriptDispatcher? serverScriptDispatcher = null
 ) : IPacketHandler, IRequiresAuthenticatedSession
 {
+    public const uint ConfirmedReason = 0;
+
     public PacketType RequestType => PacketType.GachaTicketExchangeCloseRequest;
     public PacketType ResponseType => (PacketType)0;
     public ServerType ServerType => ServerType.Area;
@@ -378,7 +381,11 @@ public sealed class AreaGachaTicketExchangeCloseHandler(
     )
     {
         var request = GachaTicketExchangeCloseRequest.FromBytes(payload.Span);
-        var tickets = await ticketExchange.SettleAsync(session, ct);
+        var tickets = await ticketExchange.SettleAsync(
+            session,
+            confirmed: request.Reason == ConfirmedReason,
+            ct
+        );
         logger.LogInformation(
             "GachaTicketExchange close from character {CharacterId}: reason={Reason} tickets={Tickets}",
             session.CharacterId,

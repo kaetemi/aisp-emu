@@ -2337,7 +2337,7 @@ The ranking rows' trailing UShort + UInt are ignored by the client. The genre na
 - **Packet ID (hex):** 0x45BD
 - **Packet ID (int):** 17853
 - **Packet Size:** 6
-- **Description:** Drop a bag stack into the recycle box. The client draws the deposited stack and adds Num to its deposited counter only after a result 0 reply (0x4973D0). The emulator accepts prize items of the open machine (up to the bag count, ten stacks) and answers with `recv_item_update_num` for the bag; the database is untouched until the box is settled.
+- **Description:** Drop a bag stack into the recycle box. The client draws the deposited stack and adds Num to its deposited counter only after a result 0 reply (0x4973D0). The emulator accepts prize items of the open machine (up to the bag count, ten stacks) without touching the bag: the box window keeps its own offered/remaining counts, and the database and bag notifies only change when the box is settled.
 
 **Layout:**
 
@@ -2399,7 +2399,7 @@ The ranking rows' trailing UShort + UInt are ignored by the client. The genre na
 - **Packet ID (hex):** 0x953B
 - **Packet ID (int):** 38203
 - **Packet Size:** 4
-- **Description:** Closes the box; the client expects no reply (its own close sends 0 or 1, the GachaTicket script command sends 1). There is no separate exchange packet, so the server settles here: every complete set of RecycleItemsPerTicket deposited items is taken from the bag and paid out as one ticket item (`recv_item_create` / `recv_item_update_num`), the rest returns. `send_gacha_end` settles the same way.
+- **Description:** Closes the box; the client expects no reply. The box opened by `recv_gachaticket_exchange_open` is the trade window with the NPC as partner: これでよし → トレード sends reason 0 (confirmed), the GachaTicket script command sends 1. There is no separate exchange packet, so the server settles on reason 0: every complete set of RecycleItemsPerTicket deposited items is taken from the bag and paid out as one ticket item (`recv_item_create` / `recv_item_update_num`), the rest returns; any other reason cancels and nothing changes. `send_gacha_end` settles like reason 0.
 
 **Layout:**
 
