@@ -615,6 +615,7 @@ public class MainContext(DbContextOptions<MainContext> options) : DbContext(opti
             e.Property(x => x.AiPrice).HasDefaultValue(0L);
             e.Property(x => x.NicoPrice).HasDefaultValue(0L);
             e.Property(x => x.TicketsPerPull).HasDefaultValue(1);
+            e.Property(x => x.RecycleItemsPerTicket).HasDefaultValue(0);
             e.Property(x => x.IsEnabled).HasDefaultValue(true);
             e.HasIndex(x => x.Code).IsUnique();
         });

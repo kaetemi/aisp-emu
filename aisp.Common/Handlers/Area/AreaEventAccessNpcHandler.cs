@@ -32,7 +32,9 @@ public class AreaEventAccessNpcHandler(
     {
         var request = EventAccessNpcRequest.FromBytes(payload.Span);
         // Touching any NPC ends an open capsule machine; the client has already dropped its overlay.
+        // Box deposits never left the bag in the database, so dropping the box state loses nothing.
         session.ActiveGachaMachineId = null;
+        session.GachaTicketBox = null;
 
         logger.LogInformation(
             "EventAccessNpcRequest from {CharacterId}: npc={NpcId}, pos=({X},{Y},{Z})",

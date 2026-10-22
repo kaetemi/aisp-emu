@@ -10,6 +10,9 @@
       "visualId": 100000,
       "aiPrice": 100,
       "nicoPrice": 0,
+      "ticketItemId": 20000135,
+      "ticketsPerPull": 1,
+      "recycleItemsPerTicket": 3,
       "isEnabled": true,
       "prizes": [
         { "itemId": 10000060, "weight": 10, "sortOrder": 10 },

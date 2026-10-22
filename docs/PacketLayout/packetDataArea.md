@@ -2322,7 +2322,7 @@ The ranking rows' trailing UShort + UInt are ignored by the client. The genre na
 - **Packet ID (hex):** 0x7D14
 - **Packet ID (int):** 32020
 - **Packet Size:** 4
-- **Description:** Opens the standalone ガチャガチャボックス (kuzi_item00.xml), the deposit box that turns spare items into tickets. The machine overlay embeds the same panel. BaseNum is the quota shown as 000/BaseNum.
+- **Description:** Opens the standalone ガチャガチャボックス (kuzi_item00.xml, client handler 0x70A090), the recycle box that turns spare aiぽん products into tickets; the machine overlay embeds the same panel. BaseNum is the quota shown as 000/BaseNum. The emulator does not send this; the embedded panel is used.
 
 **Layout:**
 
@@ -2337,7 +2337,7 @@ The ranking rows' trailing UShort + UInt are ignored by the client. The genre na
 - **Packet ID (hex):** 0x45BD
 - **Packet ID (int):** 17853
 - **Packet Size:** 6
-- **Description:** Drop a bag stack into the ticket box. The client draws the deposited stack only after a result 0 reply.
+- **Description:** Drop a bag stack into the recycle box. The client draws the deposited stack and adds Num to its deposited counter only after a result 0 reply (0x4973D0). The emulator accepts prize items of the open machine (up to the bag count, ten stacks) and answers with `recv_item_update_num` for the bag; the database is untouched until the box is settled.
 
 **Layout:**
 
@@ -2353,7 +2353,7 @@ The ranking rows' trailing UShort + UInt are ignored by the client. The genre na
 - **Packet ID (hex):** 0x7F77
 - **Packet ID (int):** 32631
 - **Packet Size:** 4
-- **Description:** Result of a deposit. The emulator does not implement the box and answers 1.
+- **Description:** Result of a deposit; nonzero is shown as an error and the stack stays in the bag.
 
 **Layout:**
 
@@ -2384,7 +2384,7 @@ The ranking rows' trailing UShort + UInt are ignored by the client. The genre na
 - **Packet ID (hex):** 0xC6DA
 - **Packet ID (int):** 50906
 - **Packet Size:** 4
-- **Description:** Result of a withdrawal. The emulator answers 1.
+- **Description:** Result of a withdrawal.
 
 **Layout:**
 
@@ -2399,7 +2399,7 @@ The ranking rows' trailing UShort + UInt are ignored by the client. The genre na
 - **Packet ID (hex):** 0x953B
 - **Packet ID (int):** 38203
 - **Packet Size:** 4
-- **Description:** Closes the ticket box. The client expects no reply.
+- **Description:** Closes the box; the client expects no reply (its own close sends 0 or 1, the GachaTicket script command sends 1). There is no separate exchange packet, so the server settles here: every complete set of RecycleItemsPerTicket deposited items is taken from the bag and paid out as one ticket item (`recv_item_create` / `recv_item_update_num`), the rest returns. `send_gacha_end` settles the same way.
 
 **Layout:**
 

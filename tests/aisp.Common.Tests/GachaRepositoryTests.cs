@@ -35,7 +35,10 @@ public sealed class GachaRepositoryTests
             Assert.Equal(100000, machine.VisualId);
             Assert.Equal(100, machine.AiPrice);
             Assert.Equal(0, machine.NicoPrice);
-            Assert.Null(machine.TicketItemId);
+            Assert.Equal(20000135, machine.TicketItemId);
+            Assert.Equal(1, machine.TicketsPerPull);
+            Assert.Equal(3, machine.RecycleItemsPerTicket);
+            Assert.True(await db.Items.AnyAsync(x => x.Id == 20000135, ct));
             Assert.True(machine.IsEnabled);
             Assert.Equal(10, machine.Prizes.Count);
             Assert.All(machine.Prizes, prize => Assert.True(prize.Weight > 0));

@@ -593,51 +593,262 @@ public class AreaGachaHandlersTests
     [Fact]
     public async Task End_ClosesMachineAndAcknowledges()
     {
-        var session = new CapturingPlayerSession
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
         {
-            CharacterId = 9001,
-            User = new User { Id = 1, Username = "gacha-end" },
-            ActiveGachaMachineId = 3,
-        };
-        await new AreaGachaEndHandler(NullLogger<AreaGachaEndHandler>.Instance).HandleAsync(
-            ReadOnlyMemory<byte>.Empty,
-            session,
-            TestContext.Current.CancellationToken
-        );
+            var ct = TestContext.Current.CancellationToken;
+            await using var db = new MainContext(options);
+            var session = new CapturingPlayerSession
+            {
+                CharacterId = 9001,
+                User = new User { Id = 1, Username = "gacha-end" },
+                ActiveGachaMachineId = 3,
+            };
+            await new AreaGachaEndHandler(
+                CreateExchange(db),
+                NullLogger<AreaGachaEndHandler>.Instance
+            ).HandleAsync(ReadOnlyMemory<byte>.Empty, session, ct);
 
-        Assert.Null(session.ActiveGachaMachineId);
-        Assert.Equal(
-            [PacketType.GachaEndResponse, PacketType.GachaEndedNotify],
-            session.Sent.Select(p => p.Type).ToArray()
-        );
-        Assert.Equal([0, 0, 0, 0], session.Sent[0].Payload);
+            Assert.Null(session.ActiveGachaMachineId);
+            Assert.Equal(
+                [PacketType.GachaEndResponse, PacketType.GachaEndedNotify],
+                session.Sent.Select(p => p.Type).ToArray()
+            );
+            Assert.Equal([0, 0, 0, 0], session.Sent[0].Payload);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
     }
 
     [Fact]
-    public async Task TicketExchange_RefusesDepositsAndWithdrawals()
+    public async Task TicketExchange_RecyclesThreePrizesIntoOneTicket_OnClose()
     {
-        var session = new CapturingPlayerSession { CharacterId = 9001 };
-        var writer = new PacketWriter();
-        writer.Write(10100220u);
-        writer.Write((ushort)1);
-        var ct = TestContext.Current.CancellationToken;
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var user = CreateUserWithCharacter(11, 9011, aiPoints: 0, nicoPoints: 0);
+            int machineId;
+            await using (var db = new MainContext(options))
+            {
+                db.Users.Add(user);
+                machineId = await SeedMachineAsync(
+                    db,
+                    aiPrice: 100,
+                    nicoPrice: 0,
+                    ticketItemId: TicketItemId,
+                    ticketsPerPull: 1,
+                    recycleItemsPerTicket: 3
+                );
+                db.CharacterInventories.Add(
+                    new CharacterInventory
+                    {
+                        CharacterId = 9011,
+                        ItemId = PrizeItemId,
+                        Quantity = 4,
+                    }
+                );
+                await db.SaveChangesAsync(ct);
+            }
 
-        await new AreaGachaTicketExchangeItemAddHandler(
-            NullLogger<AreaGachaTicketExchangeItemAddHandler>.Instance
-        ).HandleAsync(writer.ToBytes(), session, ct);
-        await new AreaGachaTicketExchangeItemDelHandler(
-            NullLogger<AreaGachaTicketExchangeItemDelHandler>.Instance
-        ).HandleAsync(writer.ToBytes(), session, ct);
-        await new AreaGachaTicketExchangeCloseHandler().HandleAsync(new byte[4], session, ct);
+            await using var runDb = new MainContext(options);
+            var session = CreateSession(user, machineId);
+            var exchange = CreateExchange(runDb);
+            var add = new AreaGachaTicketExchangeItemAddHandler(
+                exchange,
+                NullLogger<AreaGachaTicketExchangeItemAddHandler>.Instance
+            );
+            var del = new AreaGachaTicketExchangeItemDelHandler(
+                exchange,
+                NullLogger<AreaGachaTicketExchangeItemDelHandler>.Instance
+            );
 
-        Assert.Equal(
-            [
-                PacketType.GachaTicketExchangeItemAddResponse,
-                PacketType.GachaTicketExchangeItemDelResponse,
-            ],
-            session.Sent.Select(p => p.Type).ToArray()
-        );
-        Assert.All(session.Sent, p => Assert.Equal(1u, new PacketReader(p.Payload).ReadUInt()));
+            // Two in, one out, three in → four deposited of the four owned.
+            await add.HandleAsync(BuildStackPayload(PrizeItemId, 2), session, ct);
+            await del.HandleAsync(BuildStackPayload(PrizeItemId, 1), session, ct);
+            await add.HandleAsync(BuildStackPayload(PrizeItemId, 3), session, ct);
+            // A fifth copy does not exist, the ticket itself is not recyclable, an unknown item is refused.
+            await add.HandleAsync(BuildStackPayload(PrizeItemId, 1), session, ct);
+            await add.HandleAsync(BuildStackPayload(TicketItemId, 1), session, ct);
+            await add.HandleAsync(BuildStackPayload(34_000_000, 1), session, ct);
+
+            var results = session
+                .Sent.Where(p =>
+                    p.Type
+                        is PacketType.GachaTicketExchangeItemAddResponse
+                            or PacketType.GachaTicketExchangeItemDelResponse
+                )
+                .Select(p => new PacketReader(p.Payload).ReadUInt())
+                .ToArray();
+            Assert.Equal([0u, 0u, 0u, 1u, 1u, 1u], results);
+            var bagUpdates = session
+                .Sent.Where(p => p.Type == PacketType.ItemUpdateNumNotify)
+                .Select(p => ReadUpdateNum(p.Payload))
+                .ToArray();
+            Assert.Equal([(ushort)2, (ushort)3], bagUpdates);
+            Assert.Contains(session.Sent, p => p.Type == PacketType.ItemDeleteNotify);
+            Assert.Equal(4, session.GachaTicketBox!.Total);
+            Assert.Equal(1, session.GachaTicketBox.TicketsReady);
+
+            session.Sent.Clear();
+            await new AreaGachaTicketExchangeCloseHandler(
+                exchange,
+                NullLogger<AreaGachaTicketExchangeCloseHandler>.Instance
+            ).HandleAsync(BuildUIntPayload(1), session, ct);
+
+            Assert.Null(session.GachaTicketBox);
+            // Three consumed, one returned: the prize stack reads 1 again; the ticket stack appears.
+            Assert.Contains(
+                session.Sent,
+                p => p.Type == PacketType.ItemUpdateNumNotify && ReadUpdateNum(p.Payload) == 1
+            );
+            Assert.Contains(session.Sent, p => p.Type == PacketType.ItemCreateNotify);
+
+            await using var verify = new MainContext(options);
+            Assert.Equal(
+                1,
+                (
+                    await verify.CharacterInventories.SingleAsync(
+                        i => i.CharacterId == 9011 && i.ItemId == PrizeItemId,
+                        ct
+                    )
+                ).Quantity
+            );
+            Assert.Equal(
+                1,
+                (
+                    await verify.CharacterInventories.SingleAsync(
+                        i => i.CharacterId == 9011 && i.ItemId == TicketItemId,
+                        ct
+                    )
+                ).Quantity
+            );
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task TicketExchange_ReturnsIncompleteSets_WhenTheMachineCloses()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var user = CreateUserWithCharacter(12, 9012, aiPoints: 0, nicoPoints: 0);
+            int machineId;
+            await using (var db = new MainContext(options))
+            {
+                db.Users.Add(user);
+                machineId = await SeedMachineAsync(
+                    db,
+                    aiPrice: 100,
+                    nicoPrice: 0,
+                    ticketItemId: TicketItemId,
+                    ticketsPerPull: 1,
+                    recycleItemsPerTicket: 3
+                );
+                db.CharacterInventories.Add(
+                    new CharacterInventory
+                    {
+                        CharacterId = 9012,
+                        ItemId = PrizeItemId,
+                        Quantity = 2,
+                    }
+                );
+                await db.SaveChangesAsync(ct);
+            }
+
+            await using var runDb = new MainContext(options);
+            var session = CreateSession(user, machineId);
+            var exchange = CreateExchange(runDb);
+            await new AreaGachaTicketExchangeItemAddHandler(
+                exchange,
+                NullLogger<AreaGachaTicketExchangeItemAddHandler>.Instance
+            ).HandleAsync(BuildStackPayload(PrizeItemId, 2), session, ct);
+            Assert.Equal(2, session.GachaTicketBox!.Total);
+
+            await new AreaGachaEndHandler(
+                exchange,
+                NullLogger<AreaGachaEndHandler>.Instance
+            ).HandleAsync(ReadOnlyMemory<byte>.Empty, session, ct);
+
+            Assert.Null(session.GachaTicketBox);
+            Assert.Null(session.ActiveGachaMachineId);
+            var restored = session
+                .Sent.Where(p => p.Type == PacketType.ItemUpdateNumNotify)
+                .Select(p => ReadUpdateNum(p.Payload))
+                .Last();
+            Assert.Equal((ushort)2, restored);
+
+            await using var verify = new MainContext(options);
+            Assert.Equal(
+                2,
+                (
+                    await verify.CharacterInventories.SingleAsync(
+                        i => i.CharacterId == 9012 && i.ItemId == PrizeItemId,
+                        ct
+                    )
+                ).Quantity
+            );
+            Assert.False(
+                await verify.CharacterInventories.AnyAsync(
+                    i => i.CharacterId == 9012 && i.ItemId == TicketItemId,
+                    ct
+                )
+            );
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task TicketExchange_RefusesWithoutARecycleRule()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var user = CreateUserWithCharacter(13, 9013, aiPoints: 0, nicoPoints: 0);
+            int machineId;
+            await using (var db = new MainContext(options))
+            {
+                db.Users.Add(user);
+                machineId = await SeedMachineAsync(db, aiPrice: 100, nicoPrice: 0);
+                db.CharacterInventories.Add(
+                    new CharacterInventory
+                    {
+                        CharacterId = 9013,
+                        ItemId = PrizeItemId,
+                        Quantity = 3,
+                    }
+                );
+                await db.SaveChangesAsync(ct);
+            }
+
+            await using var runDb = new MainContext(options);
+            var session = CreateSession(user, machineId);
+            var exchange = CreateExchange(runDb);
+            await new AreaGachaTicketExchangeItemAddHandler(
+                exchange,
+                NullLogger<AreaGachaTicketExchangeItemAddHandler>.Instance
+            ).HandleAsync(BuildStackPayload(PrizeItemId, 1), session, ct);
+
+            Assert.Null(session.GachaTicketBox);
+            var reply = Assert.Single(session.Sent);
+            Assert.Equal(PacketType.GachaTicketExchangeItemAddResponse, reply.Type);
+            Assert.Equal(1u, new PacketReader(reply.Payload).ReadUInt());
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
     }
 
     private static async Task<int> SeedMachineAsync(
@@ -646,7 +857,8 @@ public class AreaGachaHandlersTests
         long nicoPrice,
         int? ticketItemId = null,
         int ticketsPerPull = 1,
-        bool isEnabled = true
+        bool isEnabled = true,
+        int recycleItemsPerTicket = 0
     )
     {
         var ct = TestContext.Current.CancellationToken;
@@ -675,6 +887,7 @@ public class AreaGachaHandlersTests
             NicoPrice = nicoPrice,
             TicketItemId = ticketItemId,
             TicketsPerPull = ticketsPerPull,
+            RecycleItemsPerTicket = recycleItemsPerTicket,
             IsEnabled = isEnabled,
         };
         machine.Prizes.Add(
@@ -717,6 +930,32 @@ public class AreaGachaHandlersTests
             MapId = StationMapId,
             ActiveGachaMachineId = machineId,
         };
+
+    private static GachaTicketExchange CreateExchange(MainContext db) =>
+        new(db, new GachaRepository(db), NullLogger<GachaTicketExchange>.Instance);
+
+    private static ushort ReadUpdateNum(byte[] payload)
+    {
+        var reader = new PacketReader(payload);
+        reader.ReadUInt(); // place
+        reader.ReadUInt(); // serial
+        return reader.ReadUShort();
+    }
+
+    private static byte[] BuildStackPayload(int itemId, ushort num)
+    {
+        var writer = new PacketWriter();
+        writer.Write((uint)itemId);
+        writer.Write(num);
+        return writer.ToBytes();
+    }
+
+    private static byte[] BuildUIntPayload(uint value)
+    {
+        var writer = new PacketWriter();
+        writer.Write(value);
+        return writer.ToBytes();
+    }
 
     private static AreaGachaBuyHandler CreateBuyHandler(MainContext db) =>
         new(

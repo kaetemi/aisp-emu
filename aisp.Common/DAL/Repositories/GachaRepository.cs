@@ -93,6 +93,14 @@ public sealed class GachaRepository(MainContext db) : IGachaRepository
                 throw new InvalidDataException(
                     $"Gacha machine {machineRow.Code} ticketsPerPull must be greater than zero."
                 );
+            if (machineRow.RecycleItemsPerTicket is < 0)
+                throw new InvalidDataException(
+                    $"Gacha machine {machineRow.Code} recycleItemsPerTicket must not be negative."
+                );
+            if (machineRow.RecycleItemsPerTicket is > 0 && machineRow.TicketItemId is null)
+                throw new InvalidDataException(
+                    $"Gacha machine {machineRow.Code} recycleItemsPerTicket needs a ticketItemId to mint."
+                );
 
             var machine = await db.GachaMachines.SingleOrDefaultAsync(
                 x => x.Code == machineRow.Code,
@@ -110,6 +118,7 @@ public sealed class GachaRepository(MainContext db) : IGachaRepository
             machine.NicoPrice = machineRow.NicoPrice;
             machine.TicketItemId = machineRow.TicketItemId;
             machine.TicketsPerPull = machineRow.TicketsPerPull ?? 1;
+            machine.RecycleItemsPerTicket = machineRow.RecycleItemsPerTicket ?? 0;
             machine.IsEnabled = machineRow.IsEnabled ?? true;
 
             if (
@@ -123,6 +132,7 @@ public sealed class GachaRepository(MainContext db) : IGachaRepository
                     ticketItemId
                 );
                 machine.TicketItemId = null;
+                machine.RecycleItemsPerTicket = 0;
             }
 
             await db.SaveChangesAsync(ct);
@@ -273,6 +283,7 @@ public sealed class GachaRepository(MainContext db) : IGachaRepository
         public long NicoPrice { get; set; }
         public int? TicketItemId { get; set; }
         public int? TicketsPerPull { get; set; }
+        public int? RecycleItemsPerTicket { get; set; }
         public bool? IsEnabled { get; set; }
         public List<GachaPrizeSeedRow> Prizes { get; set; } = [];
         public List<GachaNpcSeedRow> Npcs { get; set; } = [];

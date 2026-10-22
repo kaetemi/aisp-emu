@@ -36,6 +36,9 @@ public interface IPlayerSession
 
     /// <summary>Capsule machine the session opened through its NPC; send_gacha_buy is refused without one.</summary>
     int? ActiveGachaMachineId { get; set; }
+
+    /// <summary>Items the player has dropped into the open machine's アイポンボックス; settled or returned when the box closes.</summary>
+    GachaTicketBox? GachaTicketBox { get; set; }
     bool PendingEventEndAfterFade { get; set; }
 
     /// <summary>Map to route back to when drama playback ends (0 = none). See AreaAdventureStartHandler.</summary>

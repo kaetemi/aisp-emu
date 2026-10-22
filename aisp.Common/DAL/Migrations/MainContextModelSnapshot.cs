@@ -818,6 +818,11 @@ namespace aisp.Common.DAL.Migrations
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(0L);
 
+                    b.Property<int>("RecycleItemsPerTicket")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
                     b.Property<int?>("TicketItemId")
                         .HasColumnType("INTEGER");
 

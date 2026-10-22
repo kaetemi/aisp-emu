@@ -11840,6 +11840,15 @@
     "iconId": 12400000
   },
   {
+    "id": 20000135,
+    "socket": 0,
+    "name": {
+      "ja": "aiポンチケット",
+      "en": "aiPon Ticket"
+    },
+    "iconId": 20000135
+  },
+  {
     "id": 14100000,
     "socket": 0,
     "name": {

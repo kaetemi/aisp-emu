@@ -251,10 +251,11 @@ public sealed class AreaGachaBuyHandler(
     }
 }
 
-/// <summary>Close button of an idle machine: acknowledge and tell the client the session is over.</summary>
-public sealed class AreaGachaEndHandler(ILogger<AreaGachaEndHandler> logger)
-    : IPacketHandler,
-        IRequiresAuthenticatedSession
+/// <summary>Close button of an idle machine: settle the recycle box, acknowledge and tell the client the session is over.</summary>
+public sealed class AreaGachaEndHandler(
+    GachaTicketExchange ticketExchange,
+    ILogger<AreaGachaEndHandler> logger
+) : IPacketHandler, IRequiresAuthenticatedSession
 {
     public PacketType RequestType => PacketType.GachaEndRequest;
     public PacketType ResponseType => PacketType.GachaEndResponse;
@@ -271,6 +272,7 @@ public sealed class AreaGachaEndHandler(ILogger<AreaGachaEndHandler> logger)
             session.CharacterId,
             session.ActiveGachaMachineId
         );
+        await ticketExchange.SettleAsync(session, ct);
         session.ActiveGachaMachineId = null;
         await session.SendAsync(ResponseType, new GachaEndResponse(0).ToBytes(), ct);
         await session.SendAsync(PacketType.GachaEndedNotify, new GachaEndedNotify().ToBytes(), ct);
@@ -278,11 +280,11 @@ public sealed class AreaGachaEndHandler(ILogger<AreaGachaEndHandler> logger)
 }
 
 /// <summary>
-/// The アイポンボックス deposit panel next to the machine. Depositing items toward tickets is not
-/// implemented, so stacks are refused (the client keeps them in the bag) rather than acknowledged
-/// without moving anything.
+/// A bag stack dropped into the アイポンボックス. The client draws it in the box only on result 0 and keeps
+/// its own deposited-quantity counter; the bag side is kept honest with recv_item_update_num.
 /// </summary>
 public sealed class AreaGachaTicketExchangeItemAddHandler(
+    GachaTicketExchange ticketExchange,
     ILogger<AreaGachaTicketExchangeItemAddHandler> logger
 ) : IPacketHandler, IRequiresAuthenticatedSession
 {
@@ -299,21 +301,27 @@ public sealed class AreaGachaTicketExchangeItemAddHandler(
     )
     {
         var request = GachaTicketExchangeItemAddRequest.FromBytes(payload.Span);
+        var accepted =
+            request.SerialId <= int.MaxValue
+            && await ticketExchange.DepositAsync(session, (int)request.SerialId, request.Num, ct);
         logger.LogInformation(
-            "GachaTicketExchange add refused for character {CharacterId}: serial={SerialId} num={Num} (box not implemented)",
+            "GachaTicketExchange add from character {CharacterId}: serial={SerialId} num={Num} → {Result}",
             session.CharacterId,
             request.SerialId,
-            request.Num
+            request.Num,
+            accepted ? "accepted" : "refused"
         );
         await session.SendAsync(
             ResponseType,
-            new GachaTicketExchangeItemAddResponse(RefusedResult).ToBytes(),
+            new GachaTicketExchangeItemAddResponse(accepted ? 0 : RefusedResult).ToBytes(),
             ct
         );
     }
 }
 
+/// <summary>とりだす: a deposited stack goes back to the bag.</summary>
 public sealed class AreaGachaTicketExchangeItemDelHandler(
+    GachaTicketExchange ticketExchange,
     ILogger<AreaGachaTicketExchangeItemDelHandler> logger
 ) : IPacketHandler, IRequiresAuthenticatedSession
 {
@@ -330,32 +338,50 @@ public sealed class AreaGachaTicketExchangeItemDelHandler(
     )
     {
         var request = GachaTicketExchangeItemDelRequest.FromBytes(payload.Span);
+        var accepted =
+            request.SerialId <= int.MaxValue
+            && await ticketExchange.WithdrawAsync(session, (int)request.SerialId, request.Num, ct);
         logger.LogInformation(
-            "GachaTicketExchange del refused for character {CharacterId}: serial={SerialId} num={Num} (box not implemented)",
+            "GachaTicketExchange del from character {CharacterId}: serial={SerialId} num={Num} → {Result}",
             session.CharacterId,
             request.SerialId,
-            request.Num
+            request.Num,
+            accepted ? "accepted" : "refused"
         );
         await session.SendAsync(
             ResponseType,
-            new GachaTicketExchangeItemDelResponse(RefusedResult).ToBytes(),
+            new GachaTicketExchangeItemDelResponse(accepted ? 0 : RefusedResult).ToBytes(),
             ct
         );
     }
 }
 
-/// <summary><c>send_gachaticket_exchange_close</c> has no reply on the wire; consume it.</summary>
-public sealed class AreaGachaTicketExchangeCloseHandler
-    : IPacketHandler,
-        IRequiresAuthenticatedSession
+/// <summary>
+/// <c>send_gachaticket_exchange_close</c> has no reply on the wire. Closing settles the box: complete sets become
+/// tickets, the rest returns to the bag.
+/// </summary>
+public sealed class AreaGachaTicketExchangeCloseHandler(
+    GachaTicketExchange ticketExchange,
+    ILogger<AreaGachaTicketExchangeCloseHandler> logger
+) : IPacketHandler, IRequiresAuthenticatedSession
 {
     public PacketType RequestType => PacketType.GachaTicketExchangeCloseRequest;
     public PacketType ResponseType => (PacketType)0;
     public ServerType ServerType => ServerType.Area;
 
-    public Task HandleAsync(
+    public async Task HandleAsync(
         ReadOnlyMemory<byte> payload,
         IPlayerSession session,
         CancellationToken ct = default
-    ) => Task.CompletedTask;
+    )
+    {
+        var request = GachaTicketExchangeCloseRequest.FromBytes(payload.Span);
+        var tickets = await ticketExchange.SettleAsync(session, ct);
+        logger.LogInformation(
+            "GachaTicketExchange close from character {CharacterId}: reason={Reason} tickets={Tickets}",
+            session.CharacterId,
+            request.Reason,
+            tickets
+        );
+    }
 }

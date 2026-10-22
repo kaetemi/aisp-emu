@@ -19,6 +19,12 @@ public class GachaMachine
     public long NicoPrice { get; set; }
     public int? TicketItemId { get; set; }
     public int TicketsPerPull { get; set; } = 1;
+
+    /// <summary>
+    /// Recycle rule for the アイポンボックス: this many of the machine's own prize items dropped into the box
+    /// mint one <see cref="TicketItemId"/> when the box is settled. 0 disables the box.
+    /// </summary>
+    public int RecycleItemsPerTicket { get; set; }
     public bool IsEnabled { get; set; } = true;
 
     public ICollection<GachaPrize> Prizes { get; set; } = new List<GachaPrize>();
