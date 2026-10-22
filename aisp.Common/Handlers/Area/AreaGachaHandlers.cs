@@ -99,6 +99,7 @@ public sealed class AreaGachaBuyHandler(
             payment = GachaBuyType.Ticket;
 
         var ticketRemaining = 0;
+        var prizeOnTicketStack = false;
         switch (payment)
         {
             case GachaBuyType.AiPoints:
@@ -150,6 +151,12 @@ public sealed class AreaGachaBuyHandler(
                 }
                 tickets.Quantity -= machine.TicketsPerPull;
                 ticketRemaining = tickets.Quantity;
+                if (prize.ItemId == ticketItemId)
+                {
+                    // The prize is the ticket item itself: net it on the same stack instead of deleting and re-adding.
+                    tickets.Quantity += prize.Quantity;
+                    prizeOnTicketStack = true;
+                }
                 if (tickets.Quantity == 0)
                     db.CharacterInventories.Remove(tickets);
                 break;
@@ -160,7 +167,10 @@ public sealed class AreaGachaBuyHandler(
         }
 
         // AddInventoryAsync saves the pending charge together with the new stack, or clears both when the bag is full.
-        if (!await characters.AddInventoryAsync(characterId, prize.ItemId, prize.Quantity, ct))
+        var granted = prizeOnTicketStack
+            ? await CharacterInventoryRepository.TrySaveChangesAsync(db, ct)
+            : await characters.AddInventoryAsync(characterId, prize.ItemId, prize.Quantity, ct);
+        if (!granted)
         {
             await RefuseAsync(session, "inventory is full", ct);
             return;
@@ -209,7 +219,7 @@ public sealed class AreaGachaBuyHandler(
                     ct
                 );
                 break;
-            case GachaBuyType.Ticket:
+            case GachaBuyType.Ticket when !prizeOnTicketStack:
                 await CharacterItemSync.SendInventoryQuantityAsync(
                     session,
                     machine.TicketItemId!.Value,

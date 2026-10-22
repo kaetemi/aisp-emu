@@ -376,6 +376,64 @@ public class AreaGachaHandlersTests
     }
 
     [Fact]
+    public async Task Buy_WithTicket_WhenThePrizeIsTheTicketItem_KeepsTheStack()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var user = CreateUserWithCharacter(10, 9010, aiPoints: 0, nicoPoints: 0);
+            int machineId;
+            await using (var db = new MainContext(options))
+            {
+                db.Users.Add(user);
+                machineId = await SeedMachineAsync(
+                    db,
+                    aiPrice: 0,
+                    nicoPrice: 0,
+                    ticketItemId: PrizeItemId,
+                    ticketsPerPull: 1
+                );
+                db.CharacterInventories.Add(
+                    new CharacterInventory
+                    {
+                        CharacterId = 9010,
+                        ItemId = PrizeItemId,
+                        Quantity = 1,
+                    }
+                );
+                await db.SaveChangesAsync(ct);
+            }
+
+            await using var runDb = new MainContext(options);
+            var session = CreateSession(user, machineId);
+            await CreateBuyHandler(runDb)
+                .HandleAsync(BuildBuyPayload(GachaBuyType.Ticket), session, ct);
+
+            var buy = GachaBuyResponse.FromBytes(
+                Assert.Single(session.Sent, p => p.Type == PacketType.GachaBuyResponse).Payload
+            );
+            Assert.Equal(0u, buy.Result);
+            Assert.Equal((uint)PrizeItemId, buy.SerialId);
+            Assert.Equal(
+                [PacketType.GachaBuyResponse, PacketType.ItemCreateNotify],
+                session.Sent.Select(p => p.Type).ToArray()
+            );
+
+            await using var verify = new MainContext(options);
+            var stack = await verify.CharacterInventories.SingleAsync(
+                i => i.CharacterId == 9010 && i.ItemId == PrizeItemId,
+                ct
+            );
+            Assert.Equal(1, stack.Quantity);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
     public async Task Buy_RefusesWhenPurseIsShort()
     {
         var (connection, options) = TestDb.CreateInMemoryMainContext();
