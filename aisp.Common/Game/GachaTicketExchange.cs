@@ -169,6 +169,7 @@ public sealed class GachaTicketExchange(
 
         var characterId = checked((int)session.CharacterId);
         var tickets = box.TicketsReady;
+        var ticketStackExisted = false;
         var toConsume = tickets * box.ItemsPerTicket;
         var consumed = new Dictionary<int, int>();
         foreach (var (itemId, quantity) in box.Deposits)
@@ -207,6 +208,7 @@ public sealed class GachaTicketExchange(
                     x => x.CharacterId == characterId && x.ItemId == box.TicketItemId,
                     ct
                 );
+                ticketStackExisted = ticketStack is not null;
                 if (ticketStack is null)
                     db.CharacterInventories.Add(
                         new CharacterInventory
@@ -241,13 +243,22 @@ public sealed class GachaTicketExchange(
             );
         if (tickets > 0)
         {
+            // A stack the bag already had gets a count update; recv_item_create for it would re-slot the cell.
             var ticketsOwned = await OwnedAsync(session, box.TicketItemId, ct);
-            await CharacterItemSync.SendInventoryItemAsync(
-                session,
-                box.TicketItemId,
-                (ushort)Math.Min(ticketsOwned, ushort.MaxValue),
-                ct
-            );
+            if (ticketStackExisted)
+                await CharacterItemSync.SendInventoryQuantityAsync(
+                    session,
+                    box.TicketItemId,
+                    ticketsOwned,
+                    ct
+                );
+            else
+                await CharacterItemSync.SendInventoryItemAsync(
+                    session,
+                    box.TicketItemId,
+                    (ushort)Math.Min(ticketsOwned, ushort.MaxValue),
+                    ct
+                );
             logger.LogInformation(
                 "GachaTicketExchange: character {CharacterId} recycled {Count} items into {Tickets} x ticket {TicketItemId}",
                 session.CharacterId,

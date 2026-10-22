@@ -229,12 +229,17 @@ public sealed class AreaGachaBuyHandler(
                 );
                 break;
         }
-        await CharacterItemSync.SendInventoryItemAsync(
-            session,
-            prize.ItemId,
-            (ushort)Math.Min(owned, ushort.MaxValue),
-            ct
-        );
+        // The capsule needs the prize in the client's item table: a new stack arrives as recv_item_create,
+        // an existing one only gets its count bumped (a second create would re-slot the bag cell).
+        if (owned > prize.Quantity)
+            await CharacterItemSync.SendInventoryQuantityAsync(session, prize.ItemId, owned, ct);
+        else
+            await CharacterItemSync.SendInventoryItemAsync(
+                session,
+                prize.ItemId,
+                (ushort)Math.Min(owned, ushort.MaxValue),
+                ct
+            );
     }
 
     private Task RefuseAsync(IPlayerSession session, string reason, CancellationToken ct)

@@ -416,7 +416,7 @@ public class AreaGachaHandlersTests
             Assert.Equal(0u, buy.Result);
             Assert.Equal((uint)PrizeItemId, buy.SerialId);
             Assert.Equal(
-                [PacketType.GachaBuyResponse, PacketType.ItemCreateNotify],
+                [PacketType.GachaBuyResponse, PacketType.ItemUpdateNumNotify],
                 session.Sent.Select(p => p.Type).ToArray()
             );
 
