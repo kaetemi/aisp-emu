@@ -249,6 +249,15 @@ public class AreaEventAccessNpcHandler(
                 new NotifySupplyNpcExec(machineNpcObjectId).ToBytes(),
                 ct
             );
+            // The window draws the character's item box from the client's list as it stands when the started
+            // notify builds it (entries that arrive later are stored but not drawn until the next open), so
+            // the box goes first. The client keeps the list between windows and across machines, so it is
+            // re-sent as delete + create pairs to land on exactly one copy of each entry.
+            if (itembox is not null)
+            {
+                var boxed = await itembox.ListAsync(checked((int)session.CharacterId), ct);
+                await Itembox.SendContentsAsync(session, boxed, ct);
+            }
             await session.SendAsync(
                 PacketType.GachaStartedNotify,
                 new GachaStartedNotify(
@@ -263,13 +272,6 @@ public class AreaEventAccessNpcHandler(
                 ).ToBytes(),
                 ct
             );
-            // The window draws the character's item box; the client keeps that list between windows, so the
-            // box is re-sent as delete + create pairs to land on exactly one copy of each entry.
-            if (itembox is not null)
-            {
-                var boxed = await itembox.ListAsync(checked((int)session.CharacterId), ct);
-                await Itembox.SendContentsAsync(session, boxed, ct);
-            }
             logger.LogInformation(
                 "Opened gacha machine {Code} for character {CharacterId} via npc {NpcId}",
                 machine.Code,

@@ -2446,7 +2446,7 @@ The ranking rows' trailing UShort + UInt are ignored by the client. The genre na
 - **Packet ID (hex):** 0x8782
 - **Packet ID (int):** 34690
 - **Packet Size:** 22
-- **Description:** One entry of the character's item box, the holding area the capsule machine window draws as ガチャガチャボックス with an n/100 counter (the 100 is compiled into the client). The client appends the entry to the item box list of its item manager (`CProtoArea_client` vtable slot 134; reader 0x798390) and the open machine window redraws the grid and counter. The list persists between windows, so the server re-sends the box as `recv_itembox_item_delete` + `recv_itembox_item_create` pairs when a machine opens. Pulls land here instead of in the bag; とりだす moves entries out with `send_itembox_takeout`.
+- **Description:** One entry of the character's item box, the holding area the capsule machine window draws as ガチャガチャボックス with an n/100 counter (the 100 is compiled into the client). The client appends the entry to the item box list of its item manager (`CProtoArea_client` vtable slot 134; reader 0x798390) and the open machine window redraws the grid and counter. The list persists between windows, so the server re-sends the box as `recv_itembox_item_delete` + `recv_itembox_item_create` pairs when a machine opens, **before** `recv_gacha_started`: the window builds its grid from the list as it stands at that moment, and entries arriving after it are stored but not drawn until the next open. The client itself refuses お金投入 at 100 entries (「aiポンボックスが一杯の為…」). Pulls land here instead of in the bag; とりだす moves entries out with `send_itembox_takeout`.
 
 **Layout:**
 
@@ -2499,5 +2499,5 @@ The ranking rows' trailing UShort + UInt are ignored by the client. The genre na
 **Layout:**
 
 ```text
-    Int {Result}                // 0 = taken out, 1 = refused (unknown entry, full bag)
+    Int {Result}                // 0 = taken out; 1 = refused (unknown entry, full bag) — the client shows 「手持ちのアイテムが一杯です」
 ```

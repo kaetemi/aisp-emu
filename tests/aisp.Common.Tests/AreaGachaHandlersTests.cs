@@ -819,15 +819,18 @@ public class AreaGachaHandlersTests
             await CreateEventAccessNpcHandler(runDb)
                 .HandleAsync(BuildEventAccessNpcPayload(MachineNpcObjectId), session, ct);
 
-            var started = session.Sent.FindIndex(p => p.Type == PacketType.GachaStartedNotify);
+            // The window builds its grid from the list when the started notify arrives, so the box goes first.
             Assert.Equal(
                 [
+                    PacketType.EventAccessNpcResponse,
+                    PacketType.NotifySupplyNpcExec,
                     PacketType.ItemboxItemDeleteNotify,
                     PacketType.ItemboxItemCreateNotify,
                     PacketType.ItemboxItemDeleteNotify,
                     PacketType.ItemboxItemCreateNotify,
+                    PacketType.GachaStartedNotify,
                 ],
-                session.Sent.Skip(started + 1).Select(p => p.Type).ToArray()
+                session.Sent.Select(p => p.Type).ToArray()
             );
             var creates = session
                 .Sent.Where(p => p.Type == PacketType.ItemboxItemCreateNotify)
