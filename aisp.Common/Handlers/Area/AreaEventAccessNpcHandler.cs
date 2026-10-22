@@ -17,7 +17,8 @@ public class AreaEventAccessNpcHandler(
     AdventureShopCatalog adventureShopCatalog,
     ITextLocaliser localiser,
     ILogger<AreaEventAccessNpcHandler> logger,
-    DramaCatalog dramaCatalog
+    DramaCatalog dramaCatalog,
+    IItemboxRepository? itembox = null
 ) : IPacketHandler, IRequiresAuthenticatedSession
 {
     public PacketType RequestType => PacketType.EventAccessNpcRequest;
@@ -262,6 +263,13 @@ public class AreaEventAccessNpcHandler(
                 ).ToBytes(),
                 ct
             );
+            // The window draws the character's item box; the client keeps that list between windows, so the
+            // box is re-sent as delete + create pairs to land on exactly one copy of each entry.
+            if (itembox is not null)
+            {
+                var boxed = await itembox.ListAsync(checked((int)session.CharacterId), ct);
+                await Itembox.SendContentsAsync(session, boxed, ct);
+            }
             logger.LogInformation(
                 "Opened gacha machine {Code} for character {CharacterId} via npc {NpcId}",
                 machine.Code,

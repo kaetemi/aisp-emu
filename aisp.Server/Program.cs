@@ -93,6 +93,7 @@ internal class Program
         builder.Services.AddScoped<IShopRepository, ShopRepository>();
         builder.Services.AddScoped<IGachaRepository, GachaRepository>();
         builder.Services.AddScoped<GachaTicketExchange>();
+        builder.Services.AddScoped<IItemboxRepository, ItemboxRepository>();
         builder.Services.AddScoped<DramaCatalog>();
         builder.Services.AddSingleton<ISessionPresenceRepository, SessionPresenceRepository>();
         builder.Services.AddSingleton<

@@ -2438,3 +2438,66 @@ The ranking rows' trailing UShort + UInt are ignored by the client. The genre na
     UInt {SerialId}
     UShort {Num}
 ```
+
+## recv_itembox_item_create (ItemboxItemCreateNotify)
+
+- **Server:** Area
+- **Direction:** ServerToClient
+- **Packet ID (hex):** 0x8782
+- **Packet ID (int):** 34690
+- **Packet Size:** 22
+- **Description:** One entry of the character's item box, the holding area the capsule machine window draws as ガチャガチャボックス with an n/100 counter (the 100 is compiled into the client). The client appends the entry to the item box list of its item manager (`CProtoArea_client` vtable slot 134; reader 0x798390) and the open machine window redraws the grid and counter. The list persists between windows, so the server re-sends the box as `recv_itembox_item_delete` + `recv_itembox_item_create` pairs when a machine opens. Pulls land here instead of in the bag; とりだす moves entries out with `send_itembox_takeout`.
+
+**Layout:**
+
+```text
+    ULong {EntryId}             // server-side id, echoed by send_itembox_takeout / recv_itembox_item_delete
+    UInt {SerialId}             // item serial (catalog id)
+    UShort {Num}
+    ULong {Extra}               // stored by the client, never read; the server sends 0
+```
+
+## recv_itembox_item_delete (ItemboxItemDeleteNotify)
+
+- **Server:** Area
+- **Direction:** ServerToClient
+- **Packet ID (hex):** 0x1BFE
+- **Packet ID (int):** 7166
+- **Packet Size:** 8
+- **Description:** Removes one entry from the client's item box list (vtable slot 135). Unknown ids are ignored. Must precede `recv_itembox_takeout_r` 0 for the entry just taken out, because that result makes the client send the takeout for whatever entry is now first in its list.
+
+**Layout:**
+
+```text
+    ULong {EntryId}
+```
+
+## send_itembox_takeout (ItemBoxTakeoutRequest)
+
+- **Server:** Area
+- **Direction:** ClientToServer
+- **Packet ID (hex):** 0xBBE3
+- **Packet ID (int):** 48099
+- **Packet Size:** 8
+- **Description:** とりだす on the capsule machine window (window message 0x82450003, `CGachaWindow` 0x5F2A90 → item manager 0x48DC50). The client sends the id of the first entry in its item box list and sets the window state to 9/10 until `recv_itembox_takeout_r` arrives. The client's sender logs this as `send_itembox_takeout`; earlier enum builds mislabelled 0xBBE3 as `send_expire_item_limit_select_r`, whose real opcode is 0x1AAE.
+
+**Layout:**
+
+```text
+    ULong {EntryId}
+```
+
+## recv_itembox_takeout_r (ItemBoxTakeoutResponse)
+
+- **Server:** Area
+- **Direction:** ServerToClient
+- **Packet ID (hex):** 0x4135
+- **Packet ID (int):** 16693
+- **Packet Size:** 4
+- **Description:** Result of `send_itembox_takeout` (vtable slot 139 → 0x48DD90). Result 0 makes the client send the takeout for the entry now first in its list, so one click drains the whole box one round trip at a time; with an empty list, or any nonzero result, the client only refreshes the machine window. The bag change itself travels as `recv_item_create` / `recv_item_update_num` before this packet, and the entry is removed with `recv_itembox_item_delete`.
+
+**Layout:**
+
+```text
+    Int {Result}                // 0 = taken out, 1 = refused (unknown entry, full bag)
+```

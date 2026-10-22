@@ -233,10 +233,7 @@ recv_item_update_list
 recv_item_update_price
 recv_item_use_r
 recv_itembox_close_r
-recv_itembox_item_create
-recv_itembox_item_delete
 recv_itembox_opened
-recv_itembox_takeout_r
 recv_itemcode_open
 send_expire_item_limit_select_r
 send_get_cosplay_list
@@ -249,7 +246,6 @@ send_item_try_equip_fix
 send_item_try_equip_replace
 send_item_try_equip_reset
 send_item_use
-send_itembox_takeout
 send_itemcode_close
 recv_pickup_mascot_r
 send_pickup_mascot

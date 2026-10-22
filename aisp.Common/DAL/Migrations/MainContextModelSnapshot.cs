@@ -949,6 +949,33 @@ namespace aisp.Common.DAL.Migrations
                     b.ToTable("Items", (string)null);
                 });
 
+            modelBuilder.Entity("aisp.Common.DAL.Entities.ItemboxEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("CharacterId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Quantity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(1);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CharacterId", "Id");
+
+                    b.ToTable("ItemboxEntries", (string)null);
+                });
+
             modelBuilder.Entity("aisp.Common.DAL.Entities.LocalisedText", b =>
                 {
                     b.Property<string>("Key")
@@ -2503,6 +2530,17 @@ namespace aisp.Common.DAL.Migrations
                         .IsRequired();
 
                     b.Navigation("Machine");
+                });
+
+            modelBuilder.Entity("aisp.Common.DAL.Entities.ItemboxEntry", b =>
+                {
+                    b.HasOne("aisp.Common.DAL.Entities.Character", "Character")
+                        .WithMany()
+                        .HasForeignKey("CharacterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Character");
                 });
 
             modelBuilder.Entity("aisp.Common.DAL.Entities.MailRecipient", b =>

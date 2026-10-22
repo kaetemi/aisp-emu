@@ -961,9 +961,17 @@ public enum PacketType : ushort
         PacketServerType.Area,
         PacketDirection.ServerToClient,
         "recv_itembox_item_create",
-        ImplementationState.NotImplemented
+        ImplementationState.Implemented
     )]
     ItemboxItemCreateNotify = 0x8782,
+
+    [PacketMetadata(
+        PacketServerType.Area,
+        PacketDirection.ServerToClient,
+        "recv_itembox_item_delete",
+        ImplementationState.Implemented
+    )]
+    ItemboxItemDeleteNotify = 0x1BFE,
 
     [PacketMetadata(
         PacketServerType.Area,
@@ -3146,7 +3154,7 @@ public enum PacketType : ushort
         PacketServerType.Area,
         PacketDirection.ServerToClient,
         "recv_itembox_takeout_r",
-        ImplementationState.NotImplemented
+        ImplementationState.Implemented
     )]
     ItemBoxTakeoutResponse = 0x4135,
 
@@ -5156,7 +5164,15 @@ public enum PacketType : ushort
         "send_expire_item_limit_select_r",
         ImplementationState.NotImplemented
     )]
-    ExpireItemLimitSelectRRequest = 0xBBE3,
+    ExpireItemLimitSelectRRequest = 0x1AAE,
+
+    [PacketMetadata(
+        PacketServerType.Area,
+        PacketDirection.ClientToServer,
+        "send_itembox_takeout",
+        ImplementationState.Implemented
+    )]
+    ItemBoxTakeoutRequest = 0xBBE3,
 
     [PacketMetadata(
         PacketServerType.Area,

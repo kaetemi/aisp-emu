@@ -135,7 +135,7 @@ public class AreaGachaHandlersTests
                 [
                     PacketType.GachaBuyResponse,
                     PacketType.MoneyUpdatedAipoint,
-                    PacketType.ItemCreateNotify,
+                    PacketType.ItemboxItemCreateNotify,
                 ],
                 session.Sent.Select(p => p.Type).ToArray()
             );
@@ -144,11 +144,23 @@ public class AreaGachaHandlersTests
             await using var verify = new MainContext(options);
             Assert.Equal(150, (await verify.Users.SingleAsync(u => u.Id == 1, ct)).AiPoints);
             Assert.Equal(999, (await verify.Users.SingleAsync(u => u.Id == 1, ct)).NicoPoints);
-            var stack = await verify.CharacterInventories.SingleAsync(
-                i => i.CharacterId == 9001 && i.ItemId == PrizeItemId,
-                ct
+            Assert.False(
+                await verify.CharacterInventories.AnyAsync(
+                    i => i.CharacterId == 9001 && i.ItemId == PrizeItemId,
+                    ct
+                )
             );
-            Assert.Equal(1, stack.Quantity);
+            var boxed = await verify.ItemboxEntries.SingleAsync(e => e.CharacterId == 9001, ct);
+            Assert.Equal(PrizeItemId, boxed.ItemId);
+            Assert.Equal(1, boxed.Quantity);
+            var create = ItemboxItemCreateNotify.FromBytes(
+                Assert
+                    .Single(session.Sent, p => p.Type == PacketType.ItemboxItemCreateNotify)
+                    .Payload
+            );
+            Assert.Equal((ulong)boxed.Id, create.EntryId);
+            Assert.Equal((uint)PrizeItemId, create.SerialId);
+            Assert.Equal((ushort)1, create.Num);
         }
         finally
         {
@@ -234,7 +246,7 @@ public class AreaGachaHandlersTests
                 [
                     PacketType.GachaBuyResponse,
                     PacketType.ItemUpdateNumNotify,
-                    PacketType.ItemCreateNotify,
+                    PacketType.ItemboxItemCreateNotify,
                 ],
                 session.Sent.Select(p => p.Type).ToArray()
             );
@@ -246,12 +258,13 @@ public class AreaGachaHandlersTests
                 ct
             );
             Assert.Equal(3, tickets.Quantity);
-            Assert.True(
+            Assert.False(
                 await verify.CharacterInventories.AnyAsync(
-                    i => i.CharacterId == 9003 && i.ItemId == PrizeItemId && i.Quantity == 1,
+                    i => i.CharacterId == 9003 && i.ItemId == PrizeItemId,
                     ct
                 )
             );
+            Assert.Equal(1, await verify.ItemboxEntries.CountAsync(e => e.CharacterId == 9003, ct));
         }
         finally
         {
@@ -302,7 +315,7 @@ public class AreaGachaHandlersTests
                 [
                     PacketType.GachaBuyResponse,
                     PacketType.ItemDeleteNotify,
-                    PacketType.ItemCreateNotify,
+                    PacketType.ItemboxItemCreateNotify,
                 ],
                 session.Sent.Select(p => p.Type).ToArray()
             );
@@ -376,7 +389,7 @@ public class AreaGachaHandlersTests
     }
 
     [Fact]
-    public async Task Buy_WithTicket_WhenThePrizeIsTheTicketItem_KeepsTheStack()
+    public async Task Buy_WithTicket_WhenThePrizeIsTheTicketItem_BoxesThePrizeLikeAnyOther()
     {
         var (connection, options) = TestDb.CreateInMemoryMainContext();
         try
@@ -415,17 +428,25 @@ public class AreaGachaHandlersTests
             );
             Assert.Equal(0u, buy.Result);
             Assert.Equal((uint)PrizeItemId, buy.SerialId);
+            // The ticket leaves the bag (stack gone) and the prize waits in the box until taken out.
             Assert.Equal(
-                [PacketType.GachaBuyResponse, PacketType.ItemUpdateNumNotify],
+                [
+                    PacketType.GachaBuyResponse,
+                    PacketType.ItemDeleteNotify,
+                    PacketType.ItemboxItemCreateNotify,
+                ],
                 session.Sent.Select(p => p.Type).ToArray()
             );
 
             await using var verify = new MainContext(options);
-            var stack = await verify.CharacterInventories.SingleAsync(
-                i => i.CharacterId == 9010 && i.ItemId == PrizeItemId,
-                ct
+            Assert.False(
+                await verify.CharacterInventories.AnyAsync(
+                    i => i.CharacterId == 9010 && i.ItemId == PrizeItemId,
+                    ct
+                )
             );
-            Assert.Equal(1, stack.Quantity);
+            var boxed = await verify.ItemboxEntries.SingleAsync(e => e.CharacterId == 9010, ct);
+            Assert.Equal(PrizeItemId, boxed.ItemId);
         }
         finally
         {
@@ -538,7 +559,7 @@ public class AreaGachaHandlersTests
     }
 
     [Fact]
-    public async Task Buy_RefusesWhenBagIsFull_AndKeepsTheMoney()
+    public async Task Buy_RefusesWhenTheBoxIsFull_AndKeepsTheMoney()
     {
         var (connection, options) = TestDb.CreateInMemoryMainContext();
         try
@@ -550,19 +571,15 @@ public class AreaGachaHandlersTests
             {
                 db.Users.Add(user);
                 machineId = await SeedMachineAsync(db, aiPrice: 100, nicoPrice: 0);
-                for (var index = 0; index < CharacterRepository.MaximumInventoryStacks; index++)
-                {
-                    var itemId = 34_000_000 + index;
-                    db.Items.Add(new Item { Id = itemId, Name = $"Filler {index}" });
-                    db.CharacterInventories.Add(
-                        new CharacterInventory
+                for (var index = 0; index < Itembox.Capacity; index++)
+                    db.ItemboxEntries.Add(
+                        new ItemboxEntry
                         {
                             CharacterId = 9007,
-                            ItemId = itemId,
+                            ItemId = PrizeItemId,
                             Quantity = 1,
                         }
                     );
-                }
                 await db.SaveChangesAsync(ct);
             }
 
@@ -577,12 +594,247 @@ public class AreaGachaHandlersTests
 
             await using var verify = new MainContext(options);
             Assert.Equal(1000, (await verify.Users.SingleAsync(u => u.Id == 7, ct)).AiPoints);
+            Assert.Equal(
+                Itembox.Capacity,
+                await verify.ItemboxEntries.CountAsync(e => e.CharacterId == 9007, ct)
+            );
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Buy_WithAFullBag_StillBoxesThePrize()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var user = CreateUserWithCharacter(17, 9017, aiPoints: 1000, nicoPoints: 0);
+            int machineId;
+            await using (var db = new MainContext(options))
+            {
+                db.Users.Add(user);
+                machineId = await SeedMachineAsync(db, aiPrice: 100, nicoPrice: 0);
+                FillBag(db, 9017);
+                await db.SaveChangesAsync(ct);
+            }
+
+            await using var runDb = new MainContext(options);
+            var session = CreateSession(user, machineId);
+            await CreateBuyHandler(runDb)
+                .HandleAsync(BuildBuyPayload(GachaBuyType.AiPoints), session, ct);
+
+            var buy = GachaBuyResponse.FromBytes(
+                Assert.Single(session.Sent, p => p.Type == PacketType.GachaBuyResponse).Payload
+            );
+            Assert.Equal(0u, buy.Result);
+            Assert.Equal(900, session.User!.AiPoints);
+
+            await using var verify = new MainContext(options);
+            Assert.Equal(1, await verify.ItemboxEntries.CountAsync(e => e.CharacterId == 9017, ct));
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Takeout_MovesTheEntryToTheBag_AndDrainsInOrder()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var user = CreateUserWithCharacter(18, 9018, aiPoints: 0, nicoPoints: 0);
+            long first,
+                second;
+            await using (var db = new MainContext(options))
+            {
+                db.Users.Add(user);
+                await SeedMachineAsync(db, aiPrice: 100, nicoPrice: 0);
+                var a = new ItemboxEntry { CharacterId = 9018, ItemId = PrizeItemId };
+                var b = new ItemboxEntry { CharacterId = 9018, ItemId = PrizeItemId };
+                db.ItemboxEntries.AddRange(a, b);
+                await db.SaveChangesAsync(ct);
+                first = a.Id;
+                second = b.Id;
+            }
+
+            await using var runDb = new MainContext(options);
+            var session = CreateSession(user, null);
+            var handler = CreateTakeoutHandler(runDb);
+
+            await handler.HandleAsync(BuildULongPayload((ulong)first), session, ct);
+            Assert.Equal(
+                [
+                    PacketType.ItemCreateNotify,
+                    PacketType.ItemboxItemDeleteNotify,
+                    PacketType.ItemBoxTakeoutResponse,
+                ],
+                session.Sent.Select(p => p.Type).ToArray()
+            );
+            Assert.Equal(
+                (ulong)first,
+                ItemboxItemDeleteNotify.FromBytes(session.Sent[1].Payload).EntryId
+            );
+            Assert.Equal(0, ItemBoxTakeoutResponse.FromBytes(session.Sent[2].Payload).Result);
+
+            // The client answers result 0 with the next entry; the second copy bumps the existing stack.
+            session.Sent.Clear();
+            await handler.HandleAsync(BuildULongPayload((ulong)second), session, ct);
+            Assert.Equal(
+                [
+                    PacketType.ItemUpdateNumNotify,
+                    PacketType.ItemboxItemDeleteNotify,
+                    PacketType.ItemBoxTakeoutResponse,
+                ],
+                session.Sent.Select(p => p.Type).ToArray()
+            );
+            Assert.Equal((ushort)2, ReadUpdateNum(session.Sent[0].Payload));
+
+            await using var verify = new MainContext(options);
+            Assert.Equal(0, await verify.ItemboxEntries.CountAsync(e => e.CharacterId == 9018, ct));
+            var stack = await verify.CharacterInventories.SingleAsync(
+                i => i.CharacterId == 9018 && i.ItemId == PrizeItemId,
+                ct
+            );
+            Assert.Equal(2, stack.Quantity);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Takeout_RefusesAnEntryThatIsNotInTheBox()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var user = CreateUserWithCharacter(19, 9019, aiPoints: 0, nicoPoints: 0);
+            var other = CreateUserWithCharacter(20, 9020, aiPoints: 0, nicoPoints: 0);
+            long foreign;
+            await using (var db = new MainContext(options))
+            {
+                db.Users.AddRange(user, other);
+                await SeedMachineAsync(db, aiPrice: 100, nicoPrice: 0);
+                var entry = new ItemboxEntry { CharacterId = 9020, ItemId = PrizeItemId };
+                db.ItemboxEntries.Add(entry);
+                await db.SaveChangesAsync(ct);
+                foreign = entry.Id;
+            }
+
+            await using var runDb = new MainContext(options);
+            var session = CreateSession(user, null);
+            await CreateTakeoutHandler(runDb)
+                .HandleAsync(BuildULongPayload((ulong)foreign), session, ct);
+
+            var response = ItemBoxTakeoutResponse.FromBytes(Assert.Single(session.Sent).Payload);
+            Assert.Equal(AreaItemboxTakeoutHandler.RefusedResult, response.Result);
+
+            await using var verify = new MainContext(options);
+            Assert.Equal(1, await verify.ItemboxEntries.CountAsync(e => e.CharacterId == 9020, ct));
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Takeout_RefusesWhenTheBagIsFull_AndKeepsTheEntryBoxed()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var user = CreateUserWithCharacter(21, 9021, aiPoints: 0, nicoPoints: 0);
+            long entryId;
+            await using (var db = new MainContext(options))
+            {
+                db.Users.Add(user);
+                await SeedMachineAsync(db, aiPrice: 100, nicoPrice: 0);
+                FillBag(db, 9021);
+                var entry = new ItemboxEntry { CharacterId = 9021, ItemId = PrizeItemId };
+                db.ItemboxEntries.Add(entry);
+                await db.SaveChangesAsync(ct);
+                entryId = entry.Id;
+            }
+
+            await using var runDb = new MainContext(options);
+            var session = CreateSession(user, null);
+            await CreateTakeoutHandler(runDb)
+                .HandleAsync(BuildULongPayload((ulong)entryId), session, ct);
+
+            var response = ItemBoxTakeoutResponse.FromBytes(Assert.Single(session.Sent).Payload);
+            Assert.Equal(AreaItemboxTakeoutHandler.RefusedResult, response.Result);
+
+            await using var verify = new MainContext(options);
+            Assert.Equal(1, await verify.ItemboxEntries.CountAsync(e => e.CharacterId == 9021, ct));
             Assert.False(
                 await verify.CharacterInventories.AnyAsync(
-                    i => i.CharacterId == 9007 && i.ItemId == PrizeItemId,
+                    i => i.CharacterId == 9021 && i.ItemId == PrizeItemId,
                     ct
                 )
             );
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task EventAccessNpc_ResendsTheBoxAsDeleteCreatePairs()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var user = CreateUserWithCharacter(22, 9022, aiPoints: 0, nicoPoints: 0);
+            await using (var db = new MainContext(options))
+            {
+                db.Users.Add(user);
+                await SeedMachineAsync(db, aiPrice: 100, nicoPrice: 0);
+                db.ItemboxEntries.AddRange(
+                    new ItemboxEntry { CharacterId = 9022, ItemId = PrizeItemId },
+                    new ItemboxEntry
+                    {
+                        CharacterId = 9022,
+                        ItemId = PrizeItemId,
+                        Quantity = 2,
+                    }
+                );
+                await db.SaveChangesAsync(ct);
+            }
+
+            await using var runDb = new MainContext(options);
+            var session = CreateSession(user, null);
+            await CreateEventAccessNpcHandler(runDb)
+                .HandleAsync(BuildEventAccessNpcPayload(MachineNpcObjectId), session, ct);
+
+            var started = session.Sent.FindIndex(p => p.Type == PacketType.GachaStartedNotify);
+            Assert.Equal(
+                [
+                    PacketType.ItemboxItemDeleteNotify,
+                    PacketType.ItemboxItemCreateNotify,
+                    PacketType.ItemboxItemDeleteNotify,
+                    PacketType.ItemboxItemCreateNotify,
+                ],
+                session.Sent.Skip(started + 1).Select(p => p.Type).ToArray()
+            );
+            var creates = session
+                .Sent.Where(p => p.Type == PacketType.ItemboxItemCreateNotify)
+                .Select(p => ItemboxItemCreateNotify.FromBytes(p.Payload))
+                .ToArray();
+            Assert.Equal([(ushort)1, (ushort)2], creates.Select(c => c.Num).ToArray());
+            Assert.True(creates[0].EntryId < creates[1].EntryId);
         }
         finally
         {
@@ -1040,10 +1292,42 @@ public class AreaGachaHandlersTests
     private static AreaGachaBuyHandler CreateBuyHandler(MainContext db) =>
         new(
             db,
-            new CharacterRepository(db, NullLogger<CharacterRepository>.Instance),
             new GachaRepository(db),
+            new ItemboxRepository(db),
             NullLogger<AreaGachaBuyHandler>.Instance
         );
+
+    private static AreaItemboxTakeoutHandler CreateTakeoutHandler(MainContext db) =>
+        new(
+            db,
+            new CharacterRepository(db, NullLogger<CharacterRepository>.Instance),
+            new ItemboxRepository(db),
+            NullLogger<AreaItemboxTakeoutHandler>.Instance
+        );
+
+    private static void FillBag(MainContext db, int characterId)
+    {
+        for (var index = 0; index < CharacterRepository.MaximumInventoryStacks; index++)
+        {
+            var itemId = 34_000_000 + index;
+            db.Items.Add(new Item { Id = itemId, Name = $"Filler {index}" });
+            db.CharacterInventories.Add(
+                new CharacterInventory
+                {
+                    CharacterId = characterId,
+                    ItemId = itemId,
+                    Quantity = 1,
+                }
+            );
+        }
+    }
+
+    private static byte[] BuildULongPayload(ulong value)
+    {
+        var writer = new PacketWriter();
+        writer.Write(value);
+        return writer.ToBytes();
+    }
 
     private static AreaEventAccessNpcHandler CreateEventAccessNpcHandler(MainContext db)
     {
@@ -1063,7 +1347,8 @@ public class AreaGachaHandlersTests
             new AdventureShopCatalog(new AdventureShopRepository(db)),
             TestTextLocaliser.English,
             NullLogger<AreaEventAccessNpcHandler>.Instance,
-            new DramaCatalog(db, TestTextLocaliser.English)
+            new DramaCatalog(db, TestTextLocaliser.English),
+            new ItemboxRepository(db)
         );
     }
 

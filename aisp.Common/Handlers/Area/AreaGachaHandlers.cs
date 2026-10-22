@@ -1,4 +1,5 @@
 using aisp.Common.DAL;
+using aisp.Common.DAL.Entities;
 using aisp.Common.DAL.Repositories;
 using aisp.Common.Game;
 using aisp.Common.Game.ServerScripts;
@@ -11,14 +12,15 @@ namespace aisp.Common.Handlers.Area;
 
 /// <summary>
 /// One turn of the handle on the machine the session opened (<see cref="IPlayerSession.ActiveGachaMachineId"/>).
-/// Charges the machine's price in the currency the client chose, draws a weighted prize, puts it in the bag and
-/// answers <c>recv_gacha_buy_r</c> followed by the wallet and item-table notifies the capsule animation reads.
-/// Charge and grant go through one SaveChanges so a full bag refuses the pull without taking the money.
+/// Charges the machine's price in the currency the client chose, draws a weighted prize, parks it in the
+/// character's item box (the ガチャガチャボックス panel of the machine window, see <see cref="Itembox"/>) and
+/// answers <c>recv_gacha_buy_r</c>, the wallet or ticket notify and <c>recv_itembox_item_create</c>.
+/// Charge and box entry go through one SaveChanges; a full box refuses the pull without taking the money.
 /// </summary>
 public sealed class AreaGachaBuyHandler(
     MainContext db,
-    ICharacterRepository characters,
     IGachaRepository gachaRepository,
+    IItemboxRepository itembox,
     ILogger<AreaGachaBuyHandler> logger
 ) : IPacketHandler, IRequiresAuthenticatedSession
 {
@@ -88,6 +90,13 @@ public sealed class AreaGachaBuyHandler(
             return;
         }
 
+        var boxed = await itembox.CountAsync(characterId, ct);
+        if (boxed >= Itembox.Capacity)
+        {
+            await RefuseAsync(session, $"item box is full ({boxed}/{Itembox.Capacity})", ct);
+            return;
+        }
+
         // A ticket-only machine (no D or P price) is priced in tickets by the client, which still reports the
         // turn as the D kind it was opened with; only a ticket inserted next to a priced machine arrives as 2.
         var payment = request.BuyType;
@@ -100,7 +109,6 @@ public sealed class AreaGachaBuyHandler(
             payment = GachaBuyType.Ticket;
 
         var ticketRemaining = 0;
-        var prizeOnTicketStack = false;
         switch (payment)
         {
             case GachaBuyType.AiPoints:
@@ -152,12 +160,6 @@ public sealed class AreaGachaBuyHandler(
                 }
                 tickets.Quantity -= machine.TicketsPerPull;
                 ticketRemaining = tickets.Quantity;
-                if (prize.ItemId == ticketItemId)
-                {
-                    // The prize is the ticket item itself: net it on the same stack instead of deleting and re-adding.
-                    tickets.Quantity += prize.Quantity;
-                    prizeOnTicketStack = true;
-                }
                 if (tickets.Quantity == 0)
                     db.CharacterInventories.Remove(tickets);
                 break;
@@ -167,40 +169,32 @@ public sealed class AreaGachaBuyHandler(
                 return;
         }
 
-        var prizeStackExisted =
-            prizeOnTicketStack
-            || await db
-                .CharacterInventories.AsNoTracking()
-                .AnyAsync(
-                    x => x.CharacterId == characterId && x.ItemId == prize.ItemId && x.Quantity > 0,
-                    ct
-                );
-
-        // AddInventoryAsync saves the pending charge together with the new stack, or clears both when the bag is full.
-        var granted = prizeOnTicketStack
-            ? await CharacterInventoryRepository.TrySaveChangesAsync(db, ct)
-            : await characters.AddInventoryAsync(characterId, prize.ItemId, prize.Quantity, ct);
-        if (!granted)
+        var entry = new ItemboxEntry
         {
-            await RefuseAsync(session, "inventory is full", ct);
+            CharacterId = characterId,
+            ItemId = prize.ItemId,
+            Quantity = prize.Quantity,
+        };
+        db.ItemboxEntries.Add(entry);
+        if (!await CharacterInventoryRepository.TrySaveChangesAsync(db, ct))
+        {
+            await RefuseAsync(session, "could not save the pull", ct);
             return;
         }
 
         session.User.AiPoints = user.AiPoints;
         session.User.NicoPoints = user.NicoPoints;
-        var owned = await db
-            .CharacterInventories.AsNoTracking()
-            .Where(x => x.CharacterId == characterId && x.ItemId == prize.ItemId)
-            .Select(x => x.Quantity)
-            .FirstOrDefaultAsync(ct);
 
         logger.LogInformation(
-            "GachaBuy: character {CharacterId} pulled item {ItemId} x{Quantity} from {Code} with {BuyType}",
+            "GachaBuy: character {CharacterId} pulled item {ItemId} x{Quantity} from {Code} with {BuyType} into box entry {EntryId} ({Boxed}/{Capacity})",
             session.CharacterId,
             prize.ItemId,
             prize.Quantity,
             machine.Code,
-            payment
+            payment,
+            entry.Id,
+            boxed + 1,
+            Itembox.Capacity
         );
 
         await session.SendAsync(
@@ -229,7 +223,7 @@ public sealed class AreaGachaBuyHandler(
                     ct
                 );
                 break;
-            case GachaBuyType.Ticket when !prizeOnTicketStack:
+            case GachaBuyType.Ticket:
                 await CharacterItemSync.SendInventoryQuantityAsync(
                     session,
                     machine.TicketItemId!.Value,
@@ -238,17 +232,9 @@ public sealed class AreaGachaBuyHandler(
                 );
                 break;
         }
-        // The capsule needs the prize in the client's item table: a new stack arrives as recv_item_create,
-        // an existing one only gets its count bumped (a second create would re-slot the bag cell).
-        if (prizeStackExisted)
-            await CharacterItemSync.SendInventoryQuantityAsync(session, prize.ItemId, owned, ct);
-        else
-            await CharacterItemSync.SendInventoryItemAsync(
-                session,
-                prize.ItemId,
-                (ushort)Math.Min(owned, ushort.MaxValue),
-                ct
-            );
+        // The capsule window only needs the prize for its result popup (it came with buy_r); the item itself
+        // appears in the box panel, and reaches the bag when the player takes it out.
+        await Itembox.SendEntryAsync(session, entry, ct);
     }
 
     private Task RefuseAsync(IPlayerSession session, string reason, CancellationToken ct)

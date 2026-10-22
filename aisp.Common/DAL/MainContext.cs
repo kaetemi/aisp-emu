@@ -51,6 +51,7 @@ public class MainContext(DbContextOptions<MainContext> options) : DbContext(opti
     public DbSet<ShopItem> ShopItems => Set<ShopItem>();
     public DbSet<GachaMachine> GachaMachines => Set<GachaMachine>();
     public DbSet<GachaPrize> GachaPrizes => Set<GachaPrize>();
+    public DbSet<ItemboxEntry> ItemboxEntries => Set<ItemboxEntry>();
     public DbSet<DramaFigureBox> DramaFigureBoxes => Set<DramaFigureBox>();
     public DbSet<DramaFigureDefinition> DramaFigures => Set<DramaFigureDefinition>();
     public DbSet<DramaFigureEquipment> DramaFigureEquipment => Set<DramaFigureEquipment>();
@@ -632,6 +633,18 @@ public class MainContext(DbContextOptions<MainContext> options) : DbContext(opti
             e.HasOne(x => x.Machine)
                 .WithMany(x => x.Prizes)
                 .HasForeignKey(x => x.GachaMachineId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<ItemboxEntry>(e =>
+        {
+            e.ToTable("ItemboxEntries");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Quantity).HasDefaultValue(1);
+            e.HasIndex(x => new { x.CharacterId, x.Id });
+            e.HasOne(x => x.Character)
+                .WithMany()
+                .HasForeignKey(x => x.CharacterId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
