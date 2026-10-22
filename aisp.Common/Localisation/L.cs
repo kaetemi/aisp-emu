@@ -203,6 +203,7 @@ public static class L
             public static readonly LocKey RecycleNo = new("script.hotaru.recycle.no");
             public static readonly LocKey RecycleDone = new("script.hotaru.recycle.done");
             public static readonly LocKey RecycleNothing = new("script.hotaru.recycle.nothing");
+            public static readonly LocKey RecycleCancelled = new("script.hotaru.recycle.cancelled");
             public static readonly LocKey RecycleUnavailable = new(
                 "script.hotaru.recycle.unavailable"
             );

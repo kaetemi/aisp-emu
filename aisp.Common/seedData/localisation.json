@@ -499,6 +499,12 @@
     "zh-Hans": "奖品好像不够呢。再多收集一些再来吧。",
     "zh-Hant": "獎品好像不夠呢。再多收集一些再來吧。"
   },
+  "script.hotaru.recycle.cancelled": {
+    "ja": "そっか。またいつでも来てね。",
+    "en": "Okay. Come back any time.",
+    "zh-Hans": "好吧。随时再来哦。",
+    "zh-Hant": "好吧。隨時再來喔。"
+  },
   "script.hotaru.recycle.unavailable": {
     "ja": "今はリサイクルをやってないの。ごめんね。",
     "en": "I'm not doing recycling right now, sorry.",

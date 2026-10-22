@@ -4,6 +4,7 @@ using aisp.Common.DAL.Repositories;
 using aisp.Common.Game;
 using aisp.Common.Game.ServerScripts;
 using aisp.Common.Handlers.Area;
+using aisp.Common.Localisation;
 using aisp.Common.Tests.Support;
 using aisp.Network;
 using aisp.Network.Packets.Area;
@@ -47,6 +48,8 @@ public sealed class HotaruServerScriptTests
             Assert.Equal(
                 [
                     PacketType.EventStartNotify,
+                    PacketType.EventMessageNotify,
+                    PacketType.EventMessageCloseNotify,
                     PacketType.EventSelectInitNotify,
                     PacketType.EventSelectPushNotify,
                     PacketType.EventSelectPushNotify,
@@ -54,6 +57,10 @@ public sealed class HotaruServerScriptTests
                 ],
                 session.Sent.Select(p => p.Type).ToArray()
             );
+            var prompt = new PacketReader(session.Sent[1].Payload);
+            prompt.ReadUInt();
+            prompt.ReadString();
+            Assert.Contains("3", prompt.ReadString());
             session.Sent.Clear();
 
             // リサイクルする → the standalone box opens with the machine's quota.
@@ -211,6 +218,74 @@ public sealed class HotaruServerScriptTests
             );
             Assert.Equal([PacketType.EventEndNotify], session.Sent.Select(p => p.Type).ToArray());
             Assert.Null(session.GachaTicketBox);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task CancelledBox_KeepsTheBagAndSaysSo()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var ct = TestContext.Current.CancellationToken;
+            await using var db = new MainContext(options);
+            var npc = await SeedAsync(db, homeIslandId: 1, prizeCount: 3);
+            var (_, dispatcher, exchange, _) = Create(db);
+            var session = new CapturingPlayerSession
+            {
+                CharacterId = 9020,
+                UserId = 20,
+                User = await db.Users.SingleAsync(u => u.Id == 20, ct),
+                MapId = StationMapId,
+            };
+            await dispatcher.StartAsync(
+                session,
+                ServerEvents.Keys.Hotaru,
+                new ServerScriptContext { Npc = npc },
+                EventCompletionPolicy.Replayable,
+                ct
+            );
+            await dispatcher.TryHandlePacketAsync(
+                PacketType.EventSelectExecRRequest,
+                SelectPayload(0, 0),
+                session,
+                ct
+            );
+            Assert.True(await exchange.DepositAsync(session, PrizeItemId, 3, ct));
+            session.Sent.Clear();
+
+            // 拒否 and the window X both close with reason 1.
+            await new AreaGachaTicketExchangeCloseHandler(
+                exchange,
+                NullLogger<AreaGachaTicketExchangeCloseHandler>.Instance,
+                dispatcher
+            ).HandleAsync(UIntPayload(1), session, ct);
+
+            Assert.Null(session.GachaTicketBox);
+            Assert.DoesNotContain(session.Sent, p => p.Type == PacketType.ItemCreateNotify);
+            var message = Assert.Single(session.Sent, p => p.Type == PacketType.EventMessageNotify);
+            var reader = new PacketReader(message.Payload);
+            reader.ReadUInt();
+            reader.ReadString();
+            Assert.Equal(
+                TestTextLocaliser.English.Get(session, L.Script.Hotaru.RecycleCancelled),
+                reader.ReadString()
+            );
+
+            await using var verify = new MainContext(options);
+            Assert.Equal(
+                3,
+                (
+                    await verify.CharacterInventories.SingleAsync(
+                        i => i.CharacterId == 9020 && i.ItemId == PrizeItemId,
+                        ct
+                    )
+                ).Quantity
+            );
         }
         finally
         {

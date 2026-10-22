@@ -81,6 +81,22 @@ public sealed class HotaruServerScript(
         session.ServerScriptState!.Step = AwaitingChoiceStep;
         session.ServerScriptState.Data["machineId"] = machine.Id;
         session.ServerScriptState.Data["npcObjectId"] = checked((uint)context.Npc.NpcObjectId);
+        // The select window draws no prompt of its own; say the line first, as the registration script does.
+        var npcObjectId = checked((uint)context.Npc.NpcObjectId);
+        await session.SendAsync(
+            PacketType.EventMessageNotify,
+            new EventMessageNotify(
+                npcObjectId,
+                localiser.Get(session, L.Npc.Name(context.Npc.NpcObjectId)),
+                localiser.Get(session, L.Script.Hotaru.RecyclePrompt, machine.RecycleItemsPerTicket)
+            ).ToBytes(),
+            ct
+        );
+        await session.SendAsync(
+            PacketType.EventMessageCloseNotify,
+            new EventMessageCloseNotify().ToBytes(),
+            ct
+        );
         await session.SendAsync(
             PacketType.EventSelectInitNotify,
             new EventSelectInitNotify { SelectType = EventSelectType.Dialogue }.ToBytes(),
@@ -177,12 +193,15 @@ public sealed class HotaruServerScript(
             {
                 // The close handler has already settled the box; report what came out of it.
                 var tickets = (int)state.Data.GetValueOrDefault("tickets", 0);
+                var confirmed = (bool)state.Data.GetValueOrDefault("confirmed", false);
                 session.ActiveGachaMachineId = null;
                 var npcObjectId = (uint)state.Data.GetValueOrDefault("npcObjectId", 0u);
-                var text =
-                    tickets > 0
-                        ? localiser.Get(session, L.Script.Hotaru.RecycleDone, tickets)
-                        : localiser.Get(session, L.Script.Hotaru.RecycleNothing);
+                var text = (confirmed, tickets) switch
+                {
+                    (false, _) => localiser.Get(session, L.Script.Hotaru.RecycleCancelled),
+                    (true, > 0) => localiser.Get(session, L.Script.Hotaru.RecycleDone, tickets),
+                    _ => localiser.Get(session, L.Script.Hotaru.RecycleNothing),
+                };
                 await SayAndSyncAsync(session, npcObjectId, text, ct);
                 return true;
             }
@@ -204,14 +223,17 @@ public sealed class HotaruServerScript(
     }
 
     /// <summary>Called by the box close handler so the follow-up line can name the payout.</summary>
-    public static void RecordSettlement(IPlayerSession session, int tickets)
+    public static void RecordSettlement(IPlayerSession session, bool confirmed, int tickets)
     {
         if (
             session.ServerScriptState is { } state
             && state.EventKey == ServerEvents.Keys.Hotaru
             && state.Step == AwaitingBoxCloseStep
         )
+        {
+            state.Data["confirmed"] = confirmed;
             state.Data["tickets"] = tickets;
+        }
     }
 
     private Task SayAndSyncAsync(IPlayerSession session, Npc npc, string text, CancellationToken ct)

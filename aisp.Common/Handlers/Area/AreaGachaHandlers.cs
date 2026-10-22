@@ -381,11 +381,8 @@ public sealed class AreaGachaTicketExchangeCloseHandler(
     )
     {
         var request = GachaTicketExchangeCloseRequest.FromBytes(payload.Span);
-        var tickets = await ticketExchange.SettleAsync(
-            session,
-            confirmed: request.Reason == ConfirmedReason,
-            ct
-        );
+        var confirmed = request.Reason == ConfirmedReason;
+        var tickets = await ticketExchange.SettleAsync(session, confirmed, ct);
         logger.LogInformation(
             "GachaTicketExchange close from character {CharacterId}: reason={Reason} tickets={Tickets}",
             session.CharacterId,
@@ -393,7 +390,7 @@ public sealed class AreaGachaTicketExchangeCloseHandler(
             tickets
         );
         // A box opened by an NPC script (Hotaru) continues its event from here.
-        HotaruServerScript.RecordSettlement(session, tickets);
+        HotaruServerScript.RecordSettlement(session, confirmed, tickets);
         if (serverScriptDispatcher is not null)
             await serverScriptDispatcher.TryHandlePacketAsync(RequestType, payload, session, ct);
     }
