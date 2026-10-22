@@ -2216,3 +2216,193 @@ The ranking rows' trailing UShort + UInt are ignored by the client. The genre na
 ```text
     UInt {Id}
 ```
+
+## recv_gacha_started (GachaStartedNotify)
+
+- **Server:** Area
+- **Direction:** ServerToClient
+- **Packet ID (hex):** 0xCC88
+- **Packet ID (int):** 52360
+- **Packet Size:** variable (name + 22)
+- **Description:** Opens the capsule machine overlay (CGachaWindow, PAS kuzi_window00.xml). There is no client request for it; the server pushes it after `send_event_access_npc` on a machine NPC, following `recv_notify_supply_npc_exec`. VisualId selects `./interface/package/%08d.dds`, the 256x256 package sheet drawn in the glass (100000 is the stock MoonScape sheet; 101000/102000/103000 the DC/CL/SH shop sheets; 104xxx the heroine machines). A machine charges one currency: a nonzero NicoPrice opens it as a P machine, otherwise it is a D machine priced at AiPrice. TicketItemId/TicketsPerPull enable チケットを使う; the client shows the bag count of that item as チケット所有数. Zero hides the ticket controls.
+
+**Layout:**
+
+```text
+    CString {Name}              // max 0xC1 bytes including NUL
+    UInt {VisualId}
+    ULong {AiPrice}             // D (aipoint) price
+    ULong {NicoPrice}           // P (nicopoint) price
+    UInt {TicketItemId}         // bag item used as a ticket (itemserialid); 0 = none
+    UShort {TicketsPerPull}     // tickets per pull (itemnum)
+```
+
+## send_gacha_buy (GachaBuyRequest)
+
+- **Server:** Area
+- **Direction:** ClientToServer
+- **Packet ID (hex):** 0x663A
+- **Packet ID (int):** 26170
+- **Packet Size:** 4
+- **Description:** One turn of the handle. The machine is the one the session opened. Inserting a coin is local; only the turn is sent. BuyType 2 is sent when a ticket is in the slot, otherwise the kind the machine was opened with (0 = D, 1 = P).
+
+**Layout:**
+
+```text
+    UInt {BuyType}              // 0 = aipoint (D), 1 = nicopoint (P), 2 = ticket
+```
+
+## recv_gacha_buy_r (GachaBuyResponse)
+
+- **Server:** Area
+- **Direction:** ServerToClient
+- **Packet ID (hex):** 0x2F2D
+- **Packet ID (int):** 12077
+- **Packet Size:** 11
+- **Description:** Result of a pull. Result 0 with nonzero SerialId and Num stores the prize and runs the capsule animation (kuzi_window01/02); result 0 with either at zero is a miss with no prize UI. A nonzero result restores the displayed wallet and shows the value as a client message id. The client does not update its wallet or bag from this packet: send `recv_money_updated_aipoint` / `recv_money_updated_nicopoint` and `recv_item_create` / `recv_item_update_num` as usual.
+
+**Layout:**
+
+```text
+    UInt {Result}
+    UInt {SerialId}             // prize item serial
+    UShort {Num}                // prize quantity
+    Byte {HitType}              // forwarded to the result window
+```
+
+## send_gacha_end (GachaEndRequest)
+
+- **Server:** Area
+- **Direction:** ClientToServer
+- **Packet ID (hex):** 0xD7FC
+- **Packet ID (int):** 55292
+- **Packet Size:** 0
+- **Description:** Close button of an idle machine. Not sent for 返却 (coin return), which is local.
+
+**Layout:**
+
+```text
+    (empty)
+```
+
+## recv_gacha_end_r (GachaEndResponse)
+
+- **Server:** Area
+- **Direction:** ServerToClient
+- **Packet ID (hex):** 0x1380
+- **Packet ID (int):** 4992
+- **Packet Size:** 4
+- **Description:** Acknowledges `send_gacha_end`.
+
+**Layout:**
+
+```text
+    UInt {Result}
+```
+
+## recv_gacha_ended (GachaEndedNotify)
+
+- **Server:** Area
+- **Direction:** ServerToClient
+- **Packet ID (hex):** 0x78A8
+- **Packet ID (int):** 30888
+- **Packet Size:** 0
+- **Description:** The server closed the machine; the client drops the overlay. Sent after `recv_gacha_end_r`.
+
+**Layout:**
+
+```text
+    (empty)
+```
+
+## recv_gachaticket_exchange_open (GachaTicketExchangeOpenNotify)
+
+- **Server:** Area
+- **Direction:** ServerToClient
+- **Packet ID (hex):** 0x7D14
+- **Packet ID (int):** 32020
+- **Packet Size:** 4
+- **Description:** Opens the standalone ガチャガチャボックス (kuzi_item00.xml), the deposit box that turns spare items into tickets. The machine overlay embeds the same panel. BaseNum is the quota shown as 000/BaseNum.
+
+**Layout:**
+
+```text
+    UInt {BaseNum}
+```
+
+## send_gachaticket_exchange_item_add (GachaTicketExchangeItemAddRequest)
+
+- **Server:** Area
+- **Direction:** ClientToServer
+- **Packet ID (hex):** 0x45BD
+- **Packet ID (int):** 17853
+- **Packet Size:** 6
+- **Description:** Drop a bag stack into the ticket box. The client draws the deposited stack only after a result 0 reply.
+
+**Layout:**
+
+```text
+    UInt {SerialId}
+    UShort {Num}
+```
+
+## recv_gachaticket_exchange_item_add_r (GachaTicketExchangeItemAddResponse)
+
+- **Server:** Area
+- **Direction:** ServerToClient
+- **Packet ID (hex):** 0x7F77
+- **Packet ID (int):** 32631
+- **Packet Size:** 4
+- **Description:** Result of a deposit. The emulator does not implement the box and answers 1.
+
+**Layout:**
+
+```text
+    UInt {Result}
+```
+
+## send_gachaticket_exchange_item_del (GachaTicketExchangeItemDelRequest)
+
+- **Server:** Area
+- **Direction:** ClientToServer
+- **Packet ID (hex):** 0x3E26
+- **Packet ID (int):** 15910
+- **Packet Size:** 6
+- **Description:** Take a deposited stack back out of the box (とりだす).
+
+**Layout:**
+
+```text
+    UInt {SerialId}
+    UShort {Num}
+```
+
+## recv_gachaticket_exchange_item_del_r (GachaTicketExchangeItemDelResponse)
+
+- **Server:** Area
+- **Direction:** ServerToClient
+- **Packet ID (hex):** 0xC6DA
+- **Packet ID (int):** 50906
+- **Packet Size:** 4
+- **Description:** Result of a withdrawal. The emulator answers 1.
+
+**Layout:**
+
+```text
+    UInt {Result}
+```
+
+## send_gachaticket_exchange_close (GachaTicketExchangeCloseRequest)
+
+- **Server:** Area
+- **Direction:** ClientToServer
+- **Packet ID (hex):** 0x953B
+- **Packet ID (int):** 38203
+- **Packet Size:** 4
+- **Description:** Closes the ticket box. The client expects no reply.
+
+**Layout:**
+
+```text
+    UInt {Reason}
+```

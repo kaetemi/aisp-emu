@@ -7,6 +7,7 @@ public enum NpcInteractionType
     AdventureShopBuy = 2,
     AdventureShopUpload = 3,
     NiconiCommonsShop = 4,
+    Gacha = 5,
 }
 
 public class Npc
@@ -31,6 +32,7 @@ public class Npc
     public float Z { get; set; }
     public int Rotation { get; set; }
     public int? ShopId { get; set; }
+    public int? GachaMachineId { get; set; }
     public NpcInteractionType InteractionType { get; set; } = NpcInteractionType.Shop;
     public bool IsEnabled { get; set; } = true;
     public int SortOrder { get; set; }
@@ -38,5 +40,6 @@ public class Npc
     public string? EventKey { get; set; }
 
     public Shop? Shop { get; set; }
+    public GachaMachine? GachaMachine { get; set; }
     public ICollection<NpcEquipment> Equipment { get; set; } = new List<NpcEquipment>();
 }

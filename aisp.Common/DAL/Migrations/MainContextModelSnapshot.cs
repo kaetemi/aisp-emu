@@ -787,6 +787,99 @@ namespace aisp.Common.DAL.Migrations
                     b.ToTable("Furniture", (string)null);
                 });
 
+            modelBuilder.Entity("aisp.Common.DAL.Entities.GachaMachine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("AiPrice")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0L);
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<long>("NicoPrice")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0L);
+
+                    b.Property<int?>("TicketItemId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("TicketsPerPull")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(1);
+
+                    b.Property<long>("VisualId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("GachaMachines", (string)null);
+                });
+
+            modelBuilder.Entity("aisp.Common.DAL.Entities.GachaPrize", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("GachaMachineId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("HitType")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Quantity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(1);
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Weight")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(1);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GachaMachineId", "ItemId")
+                        .IsUnique();
+
+                    b.HasIndex("GachaMachineId", "SortOrder");
+
+                    b.ToTable("GachaPrizes", (string)null);
+                });
+
             modelBuilder.Entity("aisp.Common.DAL.Entities.GameChannel", b =>
                 {
                     b.Property<int>("Id")
@@ -1167,6 +1260,9 @@ namespace aisp.Common.DAL.Migrations
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(0);
 
+                    b.Property<int?>("GachaMachineId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("InteractionType")
                         .HasColumnType("INTEGER");
 
@@ -1213,6 +1309,8 @@ namespace aisp.Common.DAL.Migrations
                         .HasColumnType("REAL");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("GachaMachineId");
 
                     b.HasIndex("NpcObjectId")
                         .IsUnique();
@@ -2391,6 +2489,17 @@ namespace aisp.Common.DAL.Migrations
                     b.Navigation("Item");
                 });
 
+            modelBuilder.Entity("aisp.Common.DAL.Entities.GachaPrize", b =>
+                {
+                    b.HasOne("aisp.Common.DAL.Entities.GachaMachine", "Machine")
+                        .WithMany("Prizes")
+                        .HasForeignKey("GachaMachineId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Machine");
+                });
+
             modelBuilder.Entity("aisp.Common.DAL.Entities.MailRecipient", b =>
                 {
                     b.HasOne("aisp.Common.DAL.Entities.MailMessage", "MailMessage")
@@ -2432,10 +2541,17 @@ namespace aisp.Common.DAL.Migrations
 
             modelBuilder.Entity("aisp.Common.DAL.Entities.Npc", b =>
                 {
+                    b.HasOne("aisp.Common.DAL.Entities.GachaMachine", "GachaMachine")
+                        .WithMany("Npcs")
+                        .HasForeignKey("GachaMachineId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("aisp.Common.DAL.Entities.Shop", "Shop")
                         .WithMany("Npcs")
                         .HasForeignKey("ShopId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("GachaMachine");
 
                     b.Navigation("Shop");
                 });
@@ -2619,6 +2735,13 @@ namespace aisp.Common.DAL.Migrations
             modelBuilder.Entity("aisp.Common.DAL.Entities.DramaFigureDefinition", b =>
                 {
                     b.Navigation("Equipment");
+                });
+
+            modelBuilder.Entity("aisp.Common.DAL.Entities.GachaMachine", b =>
+                {
+                    b.Navigation("Npcs");
+
+                    b.Navigation("Prizes");
                 });
 
             modelBuilder.Entity("aisp.Common.DAL.Entities.Item", b =>

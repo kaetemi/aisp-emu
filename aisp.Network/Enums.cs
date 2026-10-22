@@ -85,7 +85,6 @@ public enum EmotionCategory : byte
     Etc = 3,
 }
 
-
 /// <summary>
 /// Event select type.
 /// Dialogue: IF/CHL dialogue selection window (same style as client CSV if-selection-start).
@@ -123,6 +122,17 @@ public enum ShopPriceType : byte
 {
     AiPoints = 0,
     NicoPoints = 1,
+}
+
+/// <summary>
+/// <c>send_gacha_buy</c> payment selector. The capsule machine (CGachaWindow) sends 2 when a ticket is in
+/// the slot, otherwise the wallet kind it was opened with: 0 for a D (aipoint) price, 1 for a P (nicopoint) price.
+/// </summary>
+public enum GachaBuyType : uint
+{
+    AiPoints = 0,
+    NicoPoints = 1,
+    Ticket = 2,
 }
 
 public enum NicotvCommentVisibility : uint

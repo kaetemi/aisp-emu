@@ -31,6 +31,8 @@ public class AreaEventAccessNpcHandler(
     )
     {
         var request = EventAccessNpcRequest.FromBytes(payload.Span);
+        // Touching any NPC ends an open capsule machine; the client has already dropped its overlay.
+        session.ActiveGachaMachineId = null;
 
         logger.LogInformation(
             "EventAccessNpcRequest from {CharacterId}: npc={NpcId}, pos=({X},{Y},{Z})",
@@ -219,6 +221,52 @@ public class AreaEventAccessNpcHandler(
                     );
                     return;
             }
+        }
+
+        if (npc.InteractionType == NpcInteractionType.Gacha)
+        {
+            session.ActiveShopId = null;
+            var machine = npc.GachaMachine;
+            if (npc.GachaMachineId is null || machine is null || !machine.IsEnabled)
+            {
+                logger.LogWarning(
+                    "Rejecting EventAccessNpcRequest for character {CharacterId}: npc={NpcId} has no enabled gacha machine",
+                    session.CharacterId,
+                    request.NpcId
+                );
+                await session.SendAsync(ResponseType, new EventAccessNpcResponse(1).ToBytes(), ct);
+                return;
+            }
+
+            session.ActiveGachaMachineId = machine.Id;
+            var machineNpcObjectId = checked((uint)npc.NpcObjectId);
+            await session.SendAsync(ResponseType, new EventAccessNpcResponse(0).ToBytes(), ct);
+            await session.SendAsync(
+                PacketType.NotifySupplyNpcExec,
+                new NotifySupplyNpcExec(machineNpcObjectId).ToBytes(),
+                ct
+            );
+            await session.SendAsync(
+                PacketType.GachaStartedNotify,
+                new GachaStartedNotify(
+                    localiser.Get(session, L.Gacha.DisplayName(machine.Code)),
+                    checked((uint)machine.VisualId),
+                    checked((ulong)machine.AiPrice),
+                    checked((ulong)machine.NicoPrice),
+                    checked((uint)(machine.TicketItemId ?? 0)),
+                    machine.TicketItemId is null
+                        ? (ushort)0
+                        : checked((ushort)machine.TicketsPerPull)
+                ).ToBytes(),
+                ct
+            );
+            logger.LogInformation(
+                "Opened gacha machine {Code} for character {CharacterId} via npc {NpcId}",
+                machine.Code,
+                session.CharacterId,
+                request.NpcId
+            );
+            return;
         }
 
         if (

@@ -91,6 +91,7 @@ internal class Program
         builder.Services.AddScoped<IItemRepository, ItemRepository>();
         builder.Services.AddScoped<INpcRepository, NpcRepository>();
         builder.Services.AddScoped<IShopRepository, ShopRepository>();
+        builder.Services.AddScoped<IGachaRepository, GachaRepository>();
         builder.Services.AddScoped<DramaCatalog>();
         builder.Services.AddSingleton<ISessionPresenceRepository, SessionPresenceRepository>();
         builder.Services.AddSingleton<
@@ -417,6 +418,11 @@ internal class Program
             await ShopRepository.SeedShopsFromJsonAsync(
                 db,
                 Path.Combine(seedDir, "niconiCommonsShop.json")
+            );
+            await GachaRepository.SeedFromJsonAsync(
+                db,
+                Path.Combine(seedDir, "gachaMachines.json"),
+                app.Logger
             );
             await NpcRepository.SeedFromJsonAsync(
                 db,

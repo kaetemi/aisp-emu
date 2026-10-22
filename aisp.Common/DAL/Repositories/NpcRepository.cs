@@ -69,6 +69,7 @@ public sealed class NpcRepository(MainContext db) : INpcRepository
         return await db
             .Npcs.AsNoTracking()
             .Include(x => x.Shop)
+            .Include(x => x.GachaMachine)
             .Include(x => x.Equipment)
             .FirstOrDefaultAsync(
                 x =>
@@ -171,6 +172,7 @@ public sealed class NpcRepository(MainContext db) : INpcRepository
             npc.Z = npcRow.Z;
             npc.Rotation = npcRow.Rotation;
             npc.ShopId = null;
+            npc.GachaMachineId = null;
             npc.InteractionType = ParseInteractionType(npcRow.InteractionType);
             npc.IsEnabled = npcRow.IsEnabled ?? true;
             npc.SortOrder = npcRow.SortOrder ?? 0;

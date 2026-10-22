@@ -33,6 +33,9 @@ public interface IPlayerSession
     bool NeedsMotd { get; set; }
     PendingAreaMapSelection? PendingAreaMapSelection { get; set; }
     int? ActiveShopId { get; set; }
+
+    /// <summary>Capsule machine the session opened through its NPC; send_gacha_buy is refused without one.</summary>
+    int? ActiveGachaMachineId { get; set; }
     bool PendingEventEndAfterFade { get; set; }
 
     /// <summary>Map to route back to when drama playback ends (0 = none). See AreaAdventureStartHandler.</summary>

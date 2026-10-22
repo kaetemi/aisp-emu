@@ -39,6 +39,11 @@ public static class L
         public static LocKey DisplayName(string code) => new($"shop.{code}.display_name");
     }
 
+    public static class Gacha
+    {
+        public static LocKey DisplayName(string code) => new($"gacha.{code}.display_name");
+    }
+
     public static class Map
     {
         public static LocKey Name(long mapId) => new($"map.{mapId}.name");

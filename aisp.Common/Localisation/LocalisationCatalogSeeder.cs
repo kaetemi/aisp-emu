@@ -33,6 +33,7 @@ public static class LocalisationCatalogSeeder
         CollectShops(Path.Combine(seedDirectory, "starterShop.json"), rows, logger);
         CollectShops(Path.Combine(seedDirectory, "furnitureShop.json"), rows, logger);
         CollectShops(Path.Combine(seedDirectory, "niconiCommonsShop.json"), rows, logger);
+        CollectGachaMachines(Path.Combine(seedDirectory, "gachaMachines.json"), rows, logger);
         CollectStandalone(Path.Combine(seedDirectory, "localisation.json"), rows, logger);
         return rows;
     }
@@ -148,6 +149,36 @@ public static class LocalisationCatalogSeeder
             if (!string.IsNullOrWhiteSpace(code))
                 AddField(rows, L.Shop.DisplayName(code), shop, "displayName");
             if (!shop.TryGetProperty("npcs", out var npcs) || npcs.ValueKind != JsonValueKind.Array)
+                continue;
+            foreach (var npc in npcs.EnumerateArray())
+                CollectNpc(npc, rows);
+        }
+    }
+
+    private static void CollectGachaMachines(
+        string path,
+        List<(string Key, GameLanguage Language, string Value)> rows,
+        ILogger? logger
+    )
+    {
+        if (!TryReadRoot(path, logger, out var root))
+            return;
+        if (
+            !root.TryGetProperty("machines", out var machines)
+            || machines.ValueKind != JsonValueKind.Array
+        )
+            return;
+        foreach (var machine in machines.EnumerateArray())
+        {
+            var code = machine.TryGetProperty("code", out var codeProperty)
+                ? codeProperty.GetString()
+                : null;
+            if (!string.IsNullOrWhiteSpace(code))
+                AddField(rows, L.Gacha.DisplayName(code), machine, "displayName");
+            if (
+                !machine.TryGetProperty("npcs", out var npcs)
+                || npcs.ValueKind != JsonValueKind.Array
+            )
                 continue;
             foreach (var npc in npcs.EnumerateArray())
                 CollectNpc(npc, rows);

@@ -49,6 +49,8 @@ public class MainContext(DbContextOptions<MainContext> options) : DbContext(opti
     public DbSet<NpcEquipment> NpcEquipments => Set<NpcEquipment>();
     public DbSet<Shop> Shops => Set<Shop>();
     public DbSet<ShopItem> ShopItems => Set<ShopItem>();
+    public DbSet<GachaMachine> GachaMachines => Set<GachaMachine>();
+    public DbSet<GachaPrize> GachaPrizes => Set<GachaPrize>();
     public DbSet<DramaFigureBox> DramaFigureBoxes => Set<DramaFigureBox>();
     public DbSet<DramaFigureDefinition> DramaFigures => Set<DramaFigureDefinition>();
     public DbSet<DramaFigureEquipment> DramaFigureEquipment => Set<DramaFigureEquipment>();
@@ -604,6 +606,34 @@ public class MainContext(DbContextOptions<MainContext> options) : DbContext(opti
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        b.Entity<GachaMachine>(e =>
+        {
+            e.ToTable("GachaMachines");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Code).HasMaxLength(128).IsRequired();
+            e.Property(x => x.DisplayName).HasMaxLength(128).IsRequired();
+            e.Property(x => x.AiPrice).HasDefaultValue(0L);
+            e.Property(x => x.NicoPrice).HasDefaultValue(0L);
+            e.Property(x => x.TicketsPerPull).HasDefaultValue(1);
+            e.Property(x => x.IsEnabled).HasDefaultValue(true);
+            e.HasIndex(x => x.Code).IsUnique();
+        });
+
+        b.Entity<GachaPrize>(e =>
+        {
+            e.ToTable("GachaPrizes");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Quantity).HasDefaultValue(1);
+            e.Property(x => x.Weight).HasDefaultValue(1);
+            e.Property(x => x.IsEnabled).HasDefaultValue(true);
+            e.HasIndex(x => new { x.GachaMachineId, x.ItemId }).IsUnique();
+            e.HasIndex(x => new { x.GachaMachineId, x.SortOrder });
+            e.HasOne(x => x.Machine)
+                .WithMany(x => x.Prizes)
+                .HasForeignKey(x => x.GachaMachineId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         b.Entity<DramaFigureBox>().Property(x => x.Id).ValueGeneratedNever();
         b.Entity<DramaFigureDefinition>(e =>
         {
@@ -649,6 +679,10 @@ public class MainContext(DbContextOptions<MainContext> options) : DbContext(opti
             e.HasOne(x => x.Shop)
                 .WithMany(x => x.Npcs)
                 .HasForeignKey(x => x.ShopId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.GachaMachine)
+                .WithMany(x => x.Npcs)
+                .HasForeignKey(x => x.GachaMachineId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
