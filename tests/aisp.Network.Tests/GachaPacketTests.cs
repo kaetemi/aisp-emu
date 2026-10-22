@@ -109,6 +109,17 @@ public class GachaPacketTests
     }
 
     [Fact]
+    public void TradeItemNotifies_WriteSerialAndNum()
+    {
+        var added = TradeItemAddedNotify.FromBytes(new TradeItemAddedNotify(20000135, 2).ToBytes());
+        Assert.Equal(20000135u, added.SerialId);
+        Assert.Equal((ushort)2, added.Num);
+        Assert.Equal(6, new TradeItemRemovedNotify(20000135, 1).ToBytes().Length);
+        Assert.Equal(0x2F29, (ushort)PacketType.TradeItemAddedNotify);
+        Assert.Equal(0x0898, (ushort)PacketType.TradeItemRemovedNotify);
+    }
+
+    [Fact]
     public void GachaPacketTypes_UseClientOpcodes()
     {
         Assert.Equal(0xCC88, (ushort)PacketType.GachaStartedNotify);

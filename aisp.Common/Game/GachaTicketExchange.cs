@@ -1,6 +1,8 @@
 using aisp.Common.DAL;
 using aisp.Common.DAL.Entities;
 using aisp.Common.DAL.Repositories;
+using aisp.Network;
+using aisp.Network.Packets.Area;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -79,7 +81,9 @@ public sealed class GachaTicketExchange(
 
         // The client's box window keeps its own offered/remaining bookkeeping; a bag update here would be
         // subtracted twice. The bag is re-synced from the database when the box settles.
+        var ticketsBefore = box.TicketsReady;
         box.Deposits[itemId] = deposited + quantity;
+        await ShowPendingTicketsAsync(session, box, ticketsBefore, ct);
         return true;
     }
 
@@ -97,11 +101,48 @@ public sealed class GachaTicketExchange(
         if (deposited < quantity)
             return false;
 
+        var ticketsBefore = box.TicketsReady;
         if (deposited == quantity)
             box.Deposits.Remove(itemId);
         else
             box.Deposits[itemId] = deposited - quantity;
+        await ShowPendingTicketsAsync(session, box, ticketsBefore, ct);
         return true;
+    }
+
+    /// <summary>
+    /// The exchange runs in the trade window, so the tickets the box would pay out are shown on the partner's
+    /// side with the ordinary trade notifies: the old count comes off, the new count goes on.
+    /// </summary>
+    private static async Task ShowPendingTicketsAsync(
+        IPlayerSession session,
+        GachaTicketBox box,
+        int ticketsBefore,
+        CancellationToken ct
+    )
+    {
+        var ticketsNow = box.TicketsReady;
+        if (ticketsNow == ticketsBefore)
+            return;
+        var serial = CharacterItemSync.ResolveSerialId(box.TicketItemId);
+        if (ticketsBefore > 0)
+            await session.SendAsync(
+                PacketType.TradeItemRemovedNotify,
+                new TradeItemRemovedNotify(
+                    serial,
+                    (ushort)Math.Min(ticketsBefore, ushort.MaxValue)
+                ).ToBytes(),
+                ct
+            );
+        if (ticketsNow > 0)
+            await session.SendAsync(
+                PacketType.TradeItemAddedNotify,
+                new TradeItemAddedNotify(
+                    serial,
+                    (ushort)Math.Min(ticketsNow, ushort.MaxValue)
+                ).ToBytes(),
+                ct
+            );
     }
 
     /// <summary>

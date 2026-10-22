@@ -4714,7 +4714,7 @@ public enum PacketType : ushort
         PacketServerType.Area,
         PacketDirection.ServerToClient,
         "recv_trade_item_added",
-        ImplementationState.NotImplemented
+        ImplementationState.Implemented
     )]
     TradeItemAddedNotify = 0x2F29,
 
@@ -4730,7 +4730,7 @@ public enum PacketType : ushort
         PacketServerType.Area,
         PacketDirection.ServerToClient,
         "recv_trade_item_removed",
-        ImplementationState.NotImplemented
+        ImplementationState.Implemented
     )]
     TradeItemRemovedNotify = 0x0898,
 

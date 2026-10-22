@@ -2406,3 +2406,35 @@ The ranking rows' trailing UShort + UInt are ignored by the client. The genre na
 ```text
     UInt {Reason}
 ```
+
+## recv_trade_item_added (TradeItemAddedNotify)
+
+- **Server:** Area
+- **Direction:** ServerToClient
+- **Packet ID (hex):** 0x2F29
+- **Packet ID (int):** 12073
+- **Packet Size:** 6
+- **Description:** The trade partner put a stack on their side of the trade window (client handler on the shared trade object, window method at 0x56E310/0x56E3F0). The NPC ticket exchange opened by `recv_gachaticket_exchange_open` is the same window, so the emulator uses this to show the tickets the box would pay out while items are deposited.
+
+**Layout:**
+
+```text
+    UInt {SerialId}
+    UShort {Num}
+```
+
+## recv_trade_item_removed (TradeItemRemovedNotify)
+
+- **Server:** Area
+- **Direction:** ServerToClient
+- **Packet ID (hex):** 0x0898
+- **Packet ID (int):** 2200
+- **Packet Size:** 6
+- **Description:** The trade partner took a stack back off their side.
+
+**Layout:**
+
+```text
+    UInt {SerialId}
+    UShort {Num}
+```

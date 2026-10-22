@@ -653,9 +653,7 @@ recv_trade_decided
 recv_trade_dele_update_r
 recv_trade_dele_updated
 recv_trade_item_add_r
-recv_trade_item_added
 recv_trade_item_remove_r
-recv_trade_item_removed
 recv_trade_ok_start
 recv_trade_oked
 recv_trade_refused

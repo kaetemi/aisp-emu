@@ -686,6 +686,15 @@ public class AreaGachaHandlersTests
             // The window keeps its own offered counts; the bag is only re-synced at settlement.
             Assert.DoesNotContain(session.Sent, p => p.Type == PacketType.ItemUpdateNumNotify);
             Assert.DoesNotContain(session.Sent, p => p.Type == PacketType.ItemDeleteNotify);
+            // Once three are in, the pending ticket shows on the partner side of the window.
+            var pending = Assert.Single(
+                session.Sent,
+                p => p.Type == PacketType.TradeItemAddedNotify
+            );
+            var pendingTicket = TradeItemAddedNotify.FromBytes(pending.Payload);
+            Assert.Equal((uint)TicketItemId, pendingTicket.SerialId);
+            Assert.Equal((ushort)1, pendingTicket.Num);
+            Assert.DoesNotContain(session.Sent, p => p.Type == PacketType.TradeItemRemovedNotify);
             Assert.Equal(4, session.GachaTicketBox!.Total);
             Assert.Equal(1, session.GachaTicketBox.TicketsReady);
 
