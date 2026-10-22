@@ -167,6 +167,15 @@ public sealed class AreaGachaBuyHandler(
                 return;
         }
 
+        var prizeStackExisted =
+            prizeOnTicketStack
+            || await db
+                .CharacterInventories.AsNoTracking()
+                .AnyAsync(
+                    x => x.CharacterId == characterId && x.ItemId == prize.ItemId && x.Quantity > 0,
+                    ct
+                );
+
         // AddInventoryAsync saves the pending charge together with the new stack, or clears both when the bag is full.
         var granted = prizeOnTicketStack
             ? await CharacterInventoryRepository.TrySaveChangesAsync(db, ct)
@@ -231,7 +240,7 @@ public sealed class AreaGachaBuyHandler(
         }
         // The capsule needs the prize in the client's item table: a new stack arrives as recv_item_create,
         // an existing one only gets its count bumped (a second create would re-slot the bag cell).
-        if (owned > prize.Quantity)
+        if (prizeStackExisted)
             await CharacterItemSync.SendInventoryQuantityAsync(session, prize.ItemId, owned, ct);
         else
             await CharacterItemSync.SendInventoryItemAsync(
