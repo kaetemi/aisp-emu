@@ -22,8 +22,8 @@ public sealed class AreaGachaBuyHandler(
 ) : IPacketHandler, IRequiresAuthenticatedSession
 {
     /// <summary>
-    /// Nonzero results are shown by the client as a message id; the machine does not interpret them
-    /// beyond "no capsule". One generic value keeps the dialog predictable.
+    /// A nonzero result makes the client restore its displayed wallet and show 「エラーコード：N」 with the
+    /// value; it does not interpret individual codes, so one generic value is used.
     /// </summary>
     public const uint RefusedResult = 1;
 
@@ -49,47 +49,33 @@ public sealed class AreaGachaBuyHandler(
                 "Failed to parse GachaBuyRequest for character {CharacterId}",
                 session.CharacterId
             );
-            await RefuseAsync(session, ct);
+            await RefuseAsync(session, "malformed request", ct);
             return;
         }
 
         if (session.CharacterId == 0 || session.User is null)
         {
-            await RefuseAsync(session, ct);
+            await RefuseAsync(session, "no character", ct);
             return;
         }
 
         if (session.ActiveGachaMachineId is not int machineId)
         {
-            logger.LogWarning(
-                "GachaBuy refused for character {CharacterId}: no machine open",
-                session.CharacterId
-            );
-            await RefuseAsync(session, ct);
+            await RefuseAsync(session, "no machine open", ct);
             return;
         }
 
         var machine = await gachaRepository.GetEnabledMachineAsync(machineId, ct);
         if (machine is null)
         {
-            logger.LogWarning(
-                "GachaBuy refused for character {CharacterId}: machine {MachineId} is gone",
-                session.CharacterId,
-                machineId
-            );
-            await RefuseAsync(session, ct);
+            await RefuseAsync(session, $"machine {machineId} is gone", ct);
             return;
         }
 
         var prize = GachaRepository.Draw(machine, Random.Shared);
         if (prize is null)
         {
-            logger.LogWarning(
-                "GachaBuy refused for character {CharacterId}: machine {Code} has no prizes",
-                session.CharacterId,
-                machine.Code
-            );
-            await RefuseAsync(session, ct);
+            await RefuseAsync(session, $"machine {machine.Code} has no prizes", ct);
             return;
         }
 
@@ -97,26 +83,47 @@ public sealed class AreaGachaBuyHandler(
         var user = await db.Users.SingleOrDefaultAsync(u => u.Id == session.User.Id, ct);
         if (user is null)
         {
-            await RefuseAsync(session, ct);
+            await RefuseAsync(session, "user is gone", ct);
             return;
         }
 
+        // A ticket-only machine (no D or P price) is priced in tickets by the client, which still reports the
+        // turn as the D kind it was opened with; only a ticket inserted next to a priced machine arrives as 2.
+        var payment = request.BuyType;
+        if (
+            payment == GachaBuyType.AiPoints
+            && machine.AiPrice <= 0
+            && machine.NicoPrice <= 0
+            && machine.TicketItemId is not null
+        )
+            payment = GachaBuyType.Ticket;
+
         var ticketRemaining = 0;
-        switch (request.BuyType)
+        switch (payment)
         {
             case GachaBuyType.AiPoints:
-                if (machine.AiPrice <= 0 || user.AiPoints < machine.AiPrice)
+                if (machine.AiPrice <= 0)
                 {
-                    await RefuseAsync(session, ct);
+                    await RefuseAsync(session, $"machine {machine.Code} has no D price", ct);
+                    return;
+                }
+                if (user.AiPoints < machine.AiPrice)
+                {
+                    await RefuseAsync(session, $"{user.AiPoints} D < {machine.AiPrice} D", ct);
                     return;
                 }
                 user.AiPoints -= machine.AiPrice;
                 break;
 
             case GachaBuyType.NicoPoints:
-                if (machine.NicoPrice <= 0 || user.NicoPoints < machine.NicoPrice)
+                if (machine.NicoPrice <= 0)
                 {
-                    await RefuseAsync(session, ct);
+                    await RefuseAsync(session, $"machine {machine.Code} has no P price", ct);
+                    return;
+                }
+                if (user.NicoPoints < machine.NicoPrice)
+                {
+                    await RefuseAsync(session, $"{user.NicoPoints} P < {machine.NicoPrice} P", ct);
                     return;
                 }
                 user.NicoPoints -= machine.NicoPrice;
@@ -125,7 +132,7 @@ public sealed class AreaGachaBuyHandler(
             case GachaBuyType.Ticket:
                 if (machine.TicketItemId is not int ticketItemId || machine.TicketsPerPull <= 0)
                 {
-                    await RefuseAsync(session, ct);
+                    await RefuseAsync(session, $"machine {machine.Code} takes no tickets", ct);
                     return;
                 }
                 var tickets = await db.CharacterInventories.SingleOrDefaultAsync(
@@ -134,7 +141,11 @@ public sealed class AreaGachaBuyHandler(
                 );
                 if (tickets is null || tickets.Quantity < machine.TicketsPerPull)
                 {
-                    await RefuseAsync(session, ct);
+                    await RefuseAsync(
+                        session,
+                        $"{tickets?.Quantity ?? 0} x ticket {ticketItemId} < {machine.TicketsPerPull}",
+                        ct
+                    );
                     return;
                 }
                 tickets.Quantity -= machine.TicketsPerPull;
@@ -144,23 +155,14 @@ public sealed class AreaGachaBuyHandler(
                 break;
 
             default:
-                logger.LogWarning(
-                    "GachaBuy refused for character {CharacterId}: unknown buy type {BuyType}",
-                    session.CharacterId,
-                    request.BuyType
-                );
-                await RefuseAsync(session, ct);
+                await RefuseAsync(session, $"unknown buy type {request.BuyType}", ct);
                 return;
         }
 
         // AddInventoryAsync saves the pending charge together with the new stack, or clears both when the bag is full.
         if (!await characters.AddInventoryAsync(characterId, prize.ItemId, prize.Quantity, ct))
         {
-            logger.LogInformation(
-                "GachaBuy refused for character {CharacterId}: inventory is full",
-                session.CharacterId
-            );
-            await RefuseAsync(session, ct);
+            await RefuseAsync(session, "inventory is full", ct);
             return;
         }
 
@@ -178,7 +180,7 @@ public sealed class AreaGachaBuyHandler(
             prize.ItemId,
             prize.Quantity,
             machine.Code,
-            request.BuyType
+            payment
         );
 
         await session.SendAsync(
@@ -191,7 +193,7 @@ public sealed class AreaGachaBuyHandler(
             ).ToBytes(),
             ct
         );
-        switch (request.BuyType)
+        switch (payment)
         {
             case GachaBuyType.AiPoints:
                 await session.SendAsync(
@@ -224,8 +226,19 @@ public sealed class AreaGachaBuyHandler(
         );
     }
 
-    private Task RefuseAsync(IPlayerSession session, CancellationToken ct) =>
-        session.SendAsync(ResponseType, new GachaBuyResponse(RefusedResult, 0, 0, 0).ToBytes(), ct);
+    private Task RefuseAsync(IPlayerSession session, string reason, CancellationToken ct)
+    {
+        logger.LogInformation(
+            "GachaBuy refused for character {CharacterId}: {Reason}",
+            session.CharacterId,
+            reason
+        );
+        return session.SendAsync(
+            ResponseType,
+            new GachaBuyResponse(RefusedResult, 0, 0, 0).ToBytes(),
+            ct
+        );
+    }
 }
 
 /// <summary>Close button of an idle machine: acknowledge and tell the client the session is over.</summary>

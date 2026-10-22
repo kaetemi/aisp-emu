@@ -31,8 +31,7 @@
           "dateStartUtc": "1970-01-01T00:00:00Z",
           "dateEndUtc": "9999-12-31T23:59:59.9999999Z",
           "npcObjectId": 1342177350,
-          "modelId": 8080010,
-          "namePlate": 0,
+          "modelId": 8800100,
           "name": {
             "ja": "aiぽん",
             "en": "aiPon"

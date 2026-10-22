@@ -2244,7 +2244,7 @@ The ranking rows' trailing UShort + UInt are ignored by the client. The genre na
 - **Packet ID (hex):** 0x663A
 - **Packet ID (int):** 26170
 - **Packet Size:** 4
-- **Description:** One turn of the handle. The machine is the one the session opened. Inserting a coin is local; only the turn is sent. BuyType 2 is sent when a ticket is in the slot, otherwise the kind the machine was opened with (0 = D, 1 = P).
+- **Description:** One turn of the handle. The machine is the one the session opened. Inserting a coin is local; only the turn is sent. BuyType is the kind the machine was opened with (0 = D, 1 = P), or 2 for a ticket inserted next to such a price. A ticket-only machine (both prices zero) is opened as kind 0 and its ticket pulls arrive as 0; the server treats 0 on such a machine as a ticket pull. A nonzero reply shows 「エラーコード：N」 on the client.
 
 **Layout:**
 

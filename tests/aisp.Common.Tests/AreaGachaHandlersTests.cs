@@ -260,6 +260,122 @@ public class AreaGachaHandlersTests
     }
 
     [Fact]
+    public async Task Buy_TicketOnlyMachine_TreatsKindZeroAsTicket()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var user = CreateUserWithCharacter(8, 9008, aiPoints: 1000, nicoPoints: 0);
+            int machineId;
+            await using (var db = new MainContext(options))
+            {
+                db.Users.Add(user);
+                machineId = await SeedMachineAsync(
+                    db,
+                    aiPrice: 0,
+                    nicoPrice: 0,
+                    ticketItemId: TicketItemId,
+                    ticketsPerPull: 1
+                );
+                db.CharacterInventories.Add(
+                    new CharacterInventory
+                    {
+                        CharacterId = 9008,
+                        ItemId = TicketItemId,
+                        Quantity = 1,
+                    }
+                );
+                await db.SaveChangesAsync(ct);
+            }
+
+            await using var runDb = new MainContext(options);
+            var session = CreateSession(user, machineId);
+            await CreateBuyHandler(runDb)
+                .HandleAsync(BuildBuyPayload(GachaBuyType.AiPoints), session, ct);
+
+            var buy = GachaBuyResponse.FromBytes(
+                Assert.Single(session.Sent, p => p.Type == PacketType.GachaBuyResponse).Payload
+            );
+            Assert.Equal(0u, buy.Result);
+            Assert.Equal(
+                [
+                    PacketType.GachaBuyResponse,
+                    PacketType.ItemDeleteNotify,
+                    PacketType.ItemCreateNotify,
+                ],
+                session.Sent.Select(p => p.Type).ToArray()
+            );
+            Assert.Equal(1000, session.User!.AiPoints);
+
+            await using var verify = new MainContext(options);
+            Assert.False(
+                await verify.CharacterInventories.AnyAsync(
+                    i => i.CharacterId == 9008 && i.ItemId == TicketItemId,
+                    ct
+                )
+            );
+            Assert.Equal(1000, (await verify.Users.SingleAsync(u => u.Id == 8, ct)).AiPoints);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Buy_PricedMachineWithTicket_KeepsKindZeroAsAiPoints()
+    {
+        var (connection, options) = TestDb.CreateInMemoryMainContext();
+        try
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var user = CreateUserWithCharacter(9, 9009, aiPoints: 1000, nicoPoints: 0);
+            int machineId;
+            await using (var db = new MainContext(options))
+            {
+                db.Users.Add(user);
+                machineId = await SeedMachineAsync(
+                    db,
+                    aiPrice: 100,
+                    nicoPrice: 0,
+                    ticketItemId: TicketItemId,
+                    ticketsPerPull: 1
+                );
+                db.CharacterInventories.Add(
+                    new CharacterInventory
+                    {
+                        CharacterId = 9009,
+                        ItemId = TicketItemId,
+                        Quantity = 1,
+                    }
+                );
+                await db.SaveChangesAsync(ct);
+            }
+
+            await using var runDb = new MainContext(options);
+            var session = CreateSession(user, machineId);
+            await CreateBuyHandler(runDb)
+                .HandleAsync(BuildBuyPayload(GachaBuyType.AiPoints), session, ct);
+
+            Assert.Equal(0u, GachaBuyResponse.FromBytes(session.Sent[0].Payload).Result);
+            Assert.Contains(session.Sent, p => p.Type == PacketType.MoneyUpdatedAipoint);
+            Assert.Equal(900, session.User!.AiPoints);
+
+            await using var verify = new MainContext(options);
+            var tickets = await verify.CharacterInventories.SingleAsync(
+                i => i.CharacterId == 9009 && i.ItemId == TicketItemId,
+                ct
+            );
+            Assert.Equal(1, tickets.Quantity);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
+
+    [Fact]
     public async Task Buy_RefusesWhenPurseIsShort()
     {
         var (connection, options) = TestDb.CreateInMemoryMainContext();
@@ -517,7 +633,7 @@ public class AreaGachaHandlersTests
             {
                 MapId = StationMapId,
                 NpcObjectId = MachineNpcObjectId,
-                ModelId = 8080010,
+                ModelId = 8800100,
                 Name = "aiぽん",
                 NamePlate = 0,
                 X = -8950f,

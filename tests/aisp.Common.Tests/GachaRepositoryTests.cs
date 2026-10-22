@@ -45,7 +45,7 @@ public sealed class GachaRepositoryTests
             var npc = Assert.Single(machine.Npcs);
             Assert.Equal(10990100L, npc.MapId);
             Assert.Equal(1342177350L, npc.NpcObjectId);
-            Assert.Equal(8080010L, npc.ModelId);
+            Assert.Equal(8800100L, npc.ModelId);
             Assert.Equal(NpcInteractionType.Gacha, npc.InteractionType);
             Assert.Equal(NpcEventKind.None, npc.EventKind);
             Assert.Null(npc.ShopId);

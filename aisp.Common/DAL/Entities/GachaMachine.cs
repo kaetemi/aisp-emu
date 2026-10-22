@@ -2,9 +2,10 @@ namespace aisp.Common.DAL.Entities;
 
 /// <summary>
 /// A capsule-toy machine (aiぽん). One machine charges one currency per pull: <see cref="NicoPrice"/> when
-/// nonzero (the client opens it as a P machine), otherwise <see cref="AiPrice"/> in D. Optionally a bag
-/// item doubles as a ticket so the client's チケットを使う button can pay <see cref="TicketsPerPull"/>
-/// copies of <see cref="TicketItemId"/> instead.
+/// nonzero (the client opens it as a P machine), otherwise <see cref="AiPrice"/> in D. A machine with
+/// neither price and a <see cref="TicketItemId"/> is a ticket machine: the client prices it at
+/// <see cref="TicketsPerPull"/> copies of that bag item and shows the owned count as チケット所有数.
+/// (Mixing a ticket with a D/P price only shows the count on the 2011 client; it draws no ticket control.)
 /// </summary>
 public class GachaMachine
 {

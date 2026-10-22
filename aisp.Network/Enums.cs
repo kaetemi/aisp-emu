@@ -125,8 +125,9 @@ public enum ShopPriceType : byte
 }
 
 /// <summary>
-/// <c>send_gacha_buy</c> payment selector. The capsule machine (CGachaWindow) sends 2 when a ticket is in
-/// the slot, otherwise the wallet kind it was opened with: 0 for a D (aipoint) price, 1 for a P (nicopoint) price.
+/// <c>send_gacha_buy</c> payment selector: the wallet kind the machine was opened with, 0 for a D (aipoint)
+/// price and 1 for a P (nicopoint) price, or 2 for a ticket inserted next to such a price. A ticket-only
+/// machine (both prices zero) is opened as kind 0, so its ticket pulls arrive as 0 too (verified live, 2011 client).
 /// </summary>
 public enum GachaBuyType : uint
 {
